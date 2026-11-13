@@ -1,0 +1,6 @@
+/out/
+/.vs/
+**/x64/
+**/Shaders/spv/
+CMakeUserPresets.json
+*.user

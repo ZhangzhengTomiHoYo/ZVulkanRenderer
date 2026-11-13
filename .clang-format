@@ -1,0 +1,4 @@
+BasedOnStyle: Microsoft
+ColumnLimit: 0
+AlignConsecutiveDeclarations: true
+AlignConsecutiveAssignments: true
