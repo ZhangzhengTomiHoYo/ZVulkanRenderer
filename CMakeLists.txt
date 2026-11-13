@@ -3,9 +3,9 @@ project(ZVulkanRenderer)
 
 set(CMAKE_CXX_STANDARD 20)
 
-file(GLOB SRC_LIST CONFIGURE_DEPENDS
+file(GLOB_RECURSE SRC_LIST CONFIGURE_DEPENDS
     "${CMAKE_CURRENT_SOURCE_DIR}/ZVulkanRenderer/*.cpp"
-    "${CMAKE_CURRENT_SOURCE_DIR}/ZVulkanRenderer/platform/*.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/ZVulkanRenderer/*.h"
 )
 
 #fetch the vulkan sdk path from environment variable

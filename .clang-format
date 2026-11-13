@@ -1,4 +1,7 @@
 BasedOnStyle: Microsoft
-ColumnLimit: 0
-AlignConsecutiveDeclarations: true
+AllowShortFunctionsOnASingleLine: Inline
+ColumnLimit: 10000
+AlignConsecutiveDeclarations:
+  Enabled: true
+  AlignFunctionDeclarations: false
 AlignConsecutiveAssignments: true
