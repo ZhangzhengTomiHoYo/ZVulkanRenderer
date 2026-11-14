@@ -41,13 +41,6 @@ class SwapChain
     std::vector<VkImageView> getSwapChainImageViews() const { return mSwapChainImageViews; }
     std::vector<VkFramebuffer> getSwapChainFramebuffers() const { return mSwapChainFramebuffers; }
 
-    uint32_t acquireNextImage(VkSemaphore semaphore, VkFence fence = VK_NULL_HANDLE)
-    {
-        uint32_t imageIndex = 0;
-        vkAcquireNextImageKHR(mDevice->getDevice(), mSwapChain, std::numeric_limits<uint64_t>::max(), semaphore, fence, &imageIndex);
-        return imageIndex;
-    }
-
   private:
     VkImageView createImageView(VkImage image, VkFormat format, VkImageAspectFlags aspectFlags, uint32_t mipLevels = 1);
 

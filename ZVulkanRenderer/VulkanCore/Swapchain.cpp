@@ -1,5 +1,7 @@
 #include "Swapchain.h"
+#include "RenderPass.h"
 #include <algorithm>
+#include <array>
 #include <spdlog/spdlog.h>
 #include <stdexcept>
 
@@ -88,7 +90,29 @@ SwapChain::~SwapChain()
         vkDestroySwapchainKHR(mDevice->getDevice(), mSwapChain, nullptr);
 }
 
-void SwapChain::createFrameBuffers(const std::shared_ptr<RenderPass> &renderPass) {}
+void SwapChain::createFrameBuffers(const std::shared_ptr<RenderPass> &renderPass)
+{
+    mSwapChainFramebuffers.resize(mImageCount);
+    for (size_t i = 0; i < mImageCount; i++)
+    {
+        std::array<VkImageView, 1> attachments = {mSwapChainImageViews[i]};
+
+        VkFramebufferCreateInfo framebufferCreateInfo = {};
+        framebufferCreateInfo.sType           = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
+        framebufferCreateInfo.renderPass      = renderPass->getRenderPass();
+        framebufferCreateInfo.attachmentCount = static_cast<uint32_t>(attachments.size());
+        framebufferCreateInfo.pAttachments    = attachments.data();
+        framebufferCreateInfo.width           = mSwapChainExtent.width;
+        framebufferCreateInfo.height          = mSwapChainExtent.height;
+        framebufferCreateInfo.layers          = 1;
+        VkResult result = vkCreateFramebuffer(mDevice->getDevice(), &framebufferCreateInfo, nullptr, &mSwapChainFramebuffers[i]);
+        if (result != VK_SUCCESS)
+        {
+            throw std::runtime_error("Failed to create framebuffer");
+        }
+    }
+    spdlog::info("Framebuffers created: {}", mImageCount);
+}
 
 VkImageView SwapChain::createImageView(VkImage image, VkFormat format, VkImageAspectFlags aspectFlags, uint32_t mipLevels)
 {

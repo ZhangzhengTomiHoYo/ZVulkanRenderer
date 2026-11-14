@@ -6,6 +6,7 @@
 #include "VulkanCore/Instance.h"
 #include "VulkanCore/WindowSurface.h"
 #include "VulkanCore/Swapchain.h"
+#include "VulkanCore/RenderPass.h"
 
 namespace VKFW
 {
@@ -22,6 +23,7 @@ class VulkanApp
     std::shared_ptr<vulkancore::Device>        mDevice      = nullptr;
     std::shared_ptr<vulkancore::CommandPool>   mCommandPool = nullptr;
     std::shared_ptr<vulkancore::SwapChain>     mSwapchain   = nullptr;
+    std::shared_ptr<vulkancore::RenderPass>    mRenderPass  = nullptr;
 
     int  mWidth;
     int  mHeight;
@@ -32,5 +34,9 @@ class VulkanApp
     void mainLoop();
     void cleanUp();
     void onResize(int w, int h);
+
+  private:
+    std::shared_ptr<vulkancore::RenderPass> createRenderPass();
+    void drawFrame();
 };
 } // namespace VKFW
