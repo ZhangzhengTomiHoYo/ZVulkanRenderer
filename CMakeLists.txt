@@ -72,6 +72,7 @@ add_custom_target(Shaders ALL DEPENDS ${SPV_FILES})
 
 #Main executable
 add_executable(ZVulkanRenderer ${SRC_LIST})
+set_target_properties(ZVulkanRenderer PROPERTIES VS_DEBUGGER_WORKING_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}")
 target_compile_options(ZVulkanRenderer PRIVATE /utf-8)
 target_link_libraries(ZVulkanRenderer vulkan-1.lib glfw3.lib) 
 
@@ -80,7 +81,7 @@ add_dependencies(ZVulkanRenderer Shaders)
 add_custom_command(TARGET ZVulkanRenderer POST_BUILD
 	COMMAND ${CMAKE_COMMAND} -E copy_directory
 		${SHADER_OUTPUT_DIR}
-		$<TARGET_FILE_DIR:ZVulkanRenderer>/spvs 
+		${CMAKE_CURRENT_BINARY_DIR}/spvs
 )
 
 

@@ -7,6 +7,7 @@ void VulkanApp::run()
 {
     initWindow();
     initVulkan();
+    createSyncObjectes();
     mainLoop();
     cleanUp();
 }
@@ -27,13 +28,17 @@ void VulkanApp::initVulkan()
 
     spdlog::info("Instance + Surface + Device + CommandPool + Swapchain ready");
 
-    mRenderPass = createRenderPass();
+    mRenderPass = factories::RenderPassFactory::CreateSimpleRenderPass(mDevice, mSwapchain->getSwapChainImageFormat());
 
     // === Framebuffer 创建 ===
     // Swapchain RenderPass Framebuffer 三者密不可分 (离屏渲染除外)
     // Framebuffer的创建依赖RenderPass 并绑定Swapchain的Imageview
     // 本项目Framebuffer封装在Swapchain中
     mSwapchain->createFrameBuffers(mRenderPass);
+    
+    mPipeline = createPipeline();
+    recordCommandBuffers();
+
 }
 
 void VulkanApp::mainLoop()
@@ -43,10 +48,13 @@ void VulkanApp::mainLoop()
         mWindow->pollEvents();
         drawFrame();
     }
+    vkDeviceWaitIdle(mDevice->getDevice());
 }
 
 void VulkanApp::cleanUp()
 {
+    mCommandBuffers.clear();
+    mPipeline.reset();
     mRenderPass.reset();
     mSwapchain.reset();
     mCommandPool.reset();
@@ -64,121 +72,205 @@ void VulkanApp::onResize(int w, int h)
     spdlog::info("resized: {}x{}", w, h);
 }
 
-std::shared_ptr<vulkancore::RenderPass> VulkanApp::createRenderPass()
+void VulkanApp::createSyncObjectes() 
 {
-    /*
-        RenderPass
-        ├─ 附件描述[0]：颜色图像应该怎样使用
-        ├─ Subpass[0]
-        │  └─ 颜色输出[0]：使用上面的附件[0]
-        └─ 依赖[0]：规定外部操作与 Subpass 0 之间的同步
-    */
+    const uint32_t count = mSwapchain->getImageCount();
+    mImageAvailableSemaphores.clear();
+    mRenderFinishedSemaphores.clear();
+    mFences.clear();
 
-    auto renderPass = std::make_shared<vulkancore::RenderPass>(mDevice);
+    for (uint32_t i = 0; i < count; i++)
+    {
+        mImageAvailableSemaphores.push_back(std::make_shared<vulkancore::Semaphore>(mDevice));
+        mRenderFinishedSemaphores.push_back(std::make_shared<vulkancore::Semaphore>(mDevice));
+        mFences.push_back(std::make_shared<vulkancore::Fence>(mDevice, true)); // Fence初始化为Signaled
+    }
+}
 
-    VkAttachmentDescription colorAttachDescrip{};
-    colorAttachDescrip.format         = mSwapchain->getSwapChainImageFormat();
-    colorAttachDescrip.samples        = VK_SAMPLE_COUNT_1_BIT;
-    colorAttachDescrip.loadOp         = VK_ATTACHMENT_LOAD_OP_CLEAR;
-    colorAttachDescrip.storeOp        = VK_ATTACHMENT_STORE_OP_STORE;
-    colorAttachDescrip.stencilLoadOp  = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
-    colorAttachDescrip.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
-    colorAttachDescrip.initialLayout  = VK_IMAGE_LAYOUT_UNDEFINED;        // RenderPass 可以同一张附件指定 开始 和 结束 时一共两种状态
-    colorAttachDescrip.finalLayout    = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
-    
-    renderPass->addAttachmentDescription(colorAttachDescrip);
+std::shared_ptr<vulkancore::Pipeline> VulkanApp::createPipeline()
+{
+    auto pipeline = std::make_shared<vulkancore::Pipeline>(mDevice, mRenderPass);
 
-    VkAttachmentReference colorAttachRef{};
-    colorAttachRef.attachment = 0;
-    colorAttachRef.layout     = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL; // SubPass 只能指定这一时刻下 这一张附件 的 一个状态
+    // === 着色器 ===
+    // SPIR-V 文件由 CMake 编译，并复制到可执行文件旁的 spvs/ 目录
+    // 入口名为 "main"：Slang 将 vertMain/fragMain 在 SPIR-V 中的入口名改为 main
+    auto vertShader = std::make_shared<vulkancore::Shader>(mDevice, "spvs/hello_vert.spv", VK_SHADER_STAGE_VERTEX_BIT, "main");
+    auto fragShader = std::make_shared<vulkancore::Shader>(mDevice, "spvs/hello_frag.spv", VK_SHADER_STAGE_FRAGMENT_BIT, "main");
+    pipeline->setShaderGroup({vertShader, fragShader});
 
-    // SubPass 加入 颜色附件引用
-    vulkancore::SubPass subpass;
-    subpass.addColorAttachmentReference(colorAttachRef);
+    // === 顶点输入：暂不使用顶点缓冲区，顶点数据写在着色器中 ===
+    // TODO：添加顶点绑定描述和顶点属性描述
+    pipeline->mVertexInputState.sType                           = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
+    pipeline->mVertexInputState.vertexBindingDescriptionCount   = 0;
+    pipeline->mVertexInputState.vertexAttributeDescriptionCount = 0;
 
-    renderPass->addSubpass(subpass);
+    // === 输入装配：每三个顶点组成一个三角形 ===
+    pipeline->mAssemblyState.sType                  = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
+    pipeline->mAssemblyState.topology               = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
+    pipeline->mAssemblyState.primitiveRestartEnable = VK_FALSE;
 
-    /* ↑
-        RenderPass 开始          Subpass 0 写颜色             RenderPass 结束
-        UNDEFINED          →    COLOR_ATTACHMENT_OPTIMAL  → PRESENT_SRC_KHR
-        initialLayout            layout                       finalLayout
-    */
+    // === 动态状态与视口 ===
+    // 视口和裁剪区域使用动态状态，在命令缓冲区中为每帧设置
+    // 不将具体分辨率固定在管线中
+    pipeline->mDynamicStates                  = {VK_DYNAMIC_STATE_VIEWPORT, VK_DYNAMIC_STATE_SCISSOR};
+    pipeline->mDynamicState.sType             = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO;
+    pipeline->mDynamicState.dynamicStateCount = static_cast<uint32_t>(pipeline->mDynamicStates.size());
+    pipeline->mDynamicState.pDynamicStates    = pipeline->mDynamicStates.data();
 
-    VkSubpassDependency dep1{};
-    dep1.srcSubpass    = VK_SUBPASS_EXTERNAL;
-    dep1.dstSubpass    = 0;
-    dep1.srcStageMask  = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-    dep1.srcAccessMask = 0;
-    dep1.dstStageMask  = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-    dep1.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
-    renderPass->addDependency(dep1);
+    // 视口和裁剪区域各一个，具体参数在命令缓冲区中动态设置
+    pipeline->mViewportState.sType         = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
+    pipeline->mViewportState.viewportCount = 1;
+    pipeline->mViewportState.scissorCount  = 1;
 
-    renderPass->buildRenderPass();
+    // === 光栅化 ===
+    pipeline->mRasterState.sType                   = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO;
+    pipeline->mRasterState.depthClampEnable        = VK_FALSE;
+    pipeline->mRasterState.rasterizerDiscardEnable = VK_FALSE;
+    pipeline->mRasterState.polygonMode             = VK_POLYGON_MODE_FILL;
+    pipeline->mRasterState.lineWidth               = 1.0f;
+    pipeline->mRasterState.cullMode                = VK_CULL_MODE_BACK_BIT;
+    pipeline->mRasterState.frontFace               = VK_FRONT_FACE_COUNTER_CLOCKWISE;
+    pipeline->mRasterState.depthBiasEnable         = VK_FALSE;
 
-    return renderPass;
+    // === 多重采样：当前关闭，后续启用 MSAA ===
+    pipeline->mMultisampleState.sType                = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO;
+    pipeline->mMultisampleState.sampleShadingEnable  = VK_FALSE;
+    pipeline->mMultisampleState.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT;
+
+    // === 颜色混合：不混合，直接用输出颜色覆盖 ===
+    // TODO：为透明材质启用颜色混合
+    VkPipelineColorBlendAttachmentState blendAttachment{};
+    blendAttachment.colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
+    blendAttachment.blendEnable    = VK_FALSE;
+    pipeline->pushBlendAttachment(blendAttachment);
+
+    pipeline->mBlendState.sType           = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
+    pipeline->mBlendState.logicOpEnable   = VK_FALSE;
+    pipeline->mBlendState.attachmentCount = static_cast<uint32_t>(pipeline->mBlendAttachmentStates.size());
+    pipeline->mBlendState.pAttachments    = pipeline->mBlendAttachmentStates.data();
+
+    // === 深度与模板：当前关闭，尚未使用深度缓冲区 ===
+    // TODO：启用深度测试和深度写入
+    pipeline->mDepthStencilState.sType            = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
+    pipeline->mDepthStencilState.depthTestEnable  = VK_FALSE;
+    pipeline->mDepthStencilState.depthWriteEnable = VK_FALSE;
+
+    // === 管线布局：暂不使用描述符集和推送常量 ===
+    // TODO：为 UBO 添加描述符集布局
+    pipeline->mPipelineLayoutInfo.sType                  = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
+    pipeline->mPipelineLayoutInfo.setLayoutCount         = 0;
+    pipeline->mPipelineLayoutInfo.pushConstantRangeCount = 0;
+
+    pipeline->build();
+    return pipeline;
+}
+void VulkanApp::recordCommandBuffers()
+{
+    auto     framebuffers = mSwapchain->getSwapChainFramebuffers();
+    auto     extent       = mSwapchain->getSwapChainExtent();
+    uint32_t count        = mSwapchain->getImageCount();
+
+    mCommandBuffers.resize(count);
+    for (uint32_t i = 0; i < count; i++)
+    {
+        mCommandBuffers[i] = std::make_shared<vulkancore::CommandBuffer>(mDevice, mCommandPool);
+
+        // 开始录制命令
+        mCommandBuffers[i]->beginCommandBuffer();
+
+        VkClearValue clearColor{};
+        clearColor.color = {0.0f, 0.2f, 0.4f, 1.0f};
+
+        VkRenderPassBeginInfo renderPassBeginInfo{};
+        renderPassBeginInfo.sType             = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
+        renderPassBeginInfo.renderPass        = mRenderPass->getRenderPass();
+        renderPassBeginInfo.framebuffer       = framebuffers[i];
+        renderPassBeginInfo.renderArea.offset = {0, 0};
+        renderPassBeginInfo.renderArea.extent = extent;
+        renderPassBeginInfo.clearValueCount   = 1;
+        renderPassBeginInfo.pClearValues      = &clearColor;
+
+        mCommandBuffers[i]->beginRenderPass(renderPassBeginInfo);
+
+        // 绑定图形管线
+        mCommandBuffers[i]->bindGraphicPipeline(mPipeline);
+
+        VkViewport viewport{};
+        viewport.x        = 0.0f;
+        viewport.y        = static_cast<float>(extent.height);
+        viewport.width    = static_cast<float>(extent.width);
+        viewport.height   = -static_cast<float>(extent.height);
+        viewport.minDepth = 0.0f;
+        viewport.maxDepth = 1.0f;
+        vkCmdSetViewport(mCommandBuffers[i]->getCommandBuffer(), 0, 1, &viewport);
+
+        VkRect2D scissor{};
+        scissor.offset = {0, 0};
+        scissor.extent = extent;
+
+        vkCmdSetScissor(mCommandBuffers[i]->getCommandBuffer(), 0, 1, &scissor);
+
+        mCommandBuffers[i]->draw(3);
+
+        mCommandBuffers[i]->endRenderPass();
+        mCommandBuffers[i]->endCommandBuffer();
+    }
 }
 
 void VulkanApp::drawFrame()
 {
-    // 由Vulkan驱动决定下一张被渲染的交换链图像
+    // 1. 等待GPU 将 Fence 置为 Signaled 
+    mFences[mCurrentFrame]->waitForFence();
+
+    // 2. 由Vulkan驱动决定下一张被渲染的交换链图像
     uint32_t imageIndex = 0;
-    vkAcquireNextImageKHR(mDevice->getDevice(), mSwapchain->getSwapChain(), UINT64_MAX, VK_NULL_HANDLE, VK_NULL_HANDLE, &imageIndex);
+    vkAcquireNextImageKHR(
+        mDevice->getDevice(), 
+        mSwapchain->getSwapChain(), 
+        UINT64_MAX, 
+        mImageAvailableSemaphores[mCurrentFrame]->getSemaphore(),   // 此时 imageIndex 还没有获取  同步资源只能使用mCurrentFrame获取
+        VK_NULL_HANDLE, 
+        &imageIndex
+    );
 
-    VkCommandBufferAllocateInfo allocateInfo{};
-    allocateInfo.sType              = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
-    allocateInfo.commandPool        = mCommandPool->getCommandPool();
-    allocateInfo.level              = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
-    allocateInfo.commandBufferCount = 1;
+    // 3. 手动重置Fence
+    mFences[mCurrentFrame]->resetFence();
 
-    VkCommandBuffer commandBuffer = VK_NULL_HANDLE;
-    vkAllocateCommandBuffers(mDevice->getDevice(), &allocateInfo, &commandBuffer);
+    // 获取已经录制好的命令
+    VkCommandBuffer commandBuffer = mCommandBuffers[imageIndex]->getCommandBuffer();
 
-    VkCommandBufferBeginInfo beginInfo{};
-    beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-    beginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
-    //vkBeginCommandBuffer(commandBuffer, &beginInfo);
+    VkSemaphore          waitSemphores[]    = {mImageAvailableSemaphores[mCurrentFrame]->getSemaphore()};
+    VkSemaphore          signalSemaphores[] = {mRenderFinishedSemaphores[mCurrentFrame]->getSemaphore()};
+    VkPipelineStageFlags waitStages[]       = {VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT};             // 只有在向颜色附件写入时才等待
 
-    VkClearValue clearColor{};
-    clearColor.color = {1.0f, 0.0f, 0.4f, 1.0f};
-
-    VkRenderPassBeginInfo renderPassBeginInfo{};
-    renderPassBeginInfo.sType             = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
-    renderPassBeginInfo.renderPass        = mRenderPass->getRenderPass();
-    renderPassBeginInfo.framebuffer       = mSwapchain->getSwapChainFramebuffers()[imageIndex];
-    renderPassBeginInfo.renderArea.offset = {0, 0};
-    renderPassBeginInfo.renderArea.extent = mSwapchain->getSwapChainExtent();
-    renderPassBeginInfo.clearValueCount   = 1;
-    renderPassBeginInfo.pClearValues      = &clearColor;
-
-    vkBeginCommandBuffer(commandBuffer, &beginInfo);
-        vkCmdBeginRenderPass(commandBuffer, &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
-        // TODO drawcall
-        vkCmdEndRenderPass(commandBuffer);
-    vkEndCommandBuffer(commandBuffer);
-
-    // 命令录制完成  下面开始提交
+    // 4. 提交
     VkSubmitInfo submitInfo{};
-    submitInfo.sType              = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-    submitInfo.commandBufferCount = 1;
-    submitInfo.pCommandBuffers    = &commandBuffer;
+    submitInfo.sType                = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+    submitInfo.waitSemaphoreCount   = 1;
+    submitInfo.pWaitSemaphores      = waitSemphores;
+    submitInfo.signalSemaphoreCount = 1;
+    submitInfo.pSignalSemaphores    = signalSemaphores;
+    submitInfo.commandBufferCount   = 1;
+    submitInfo.pCommandBuffers      = &commandBuffer;
+    submitInfo.pWaitDstStageMask    = waitStages;
 
-    vkQueueSubmit(mDevice->getGraphicQueue(), 1, &submitInfo, VK_NULL_HANDLE);
+    vkQueueSubmit(mDevice->getGraphicQueue(), 1, &submitInfo, mFences[mCurrentFrame]->getFence());
 
-    vkQueueWaitIdle(mDevice->getGraphicQueue());
+    VkSwapchainKHR swapchains[] = {mSwapchain->getSwapChain()};
 
-    vkFreeCommandBuffers(mDevice->getDevice(), mCommandPool->getCommandPool(), 1, &commandBuffer);
-
-    // 需要一个左值
-    VkSwapchainKHR swapchain = mSwapchain->getSwapChain();
-
-    // 绘制完成  下面开始呈现已经绘制好的交换链图像
+    // 5. 绘制完成(等signalSemaphores)  但是可以先提交呈现请求
     VkPresentInfoKHR presentInfo{};
-    presentInfo.sType          = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
-    presentInfo.swapchainCount = 1;
-    presentInfo.pSwapchains    = &swapchain;
-    presentInfo.pImageIndices  = &imageIndex;
+    presentInfo.sType              = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
+    presentInfo.waitSemaphoreCount = 1;
+    presentInfo.pWaitSemaphores    = signalSemaphores;
+    presentInfo.swapchainCount     = 1;
+    presentInfo.pSwapchains        = swapchains;
+    presentInfo.pImageIndices      = &imageIndex;
 
     vkQueuePresentKHR(mDevice->getPresentQueue(), &presentInfo);
+
+    // 6. 下一帧使用的同步资源下标
+    mCurrentFrame = (mCurrentFrame + 1) % mSwapchain->getImageCount();
 }
 
 } // namespace VKFW

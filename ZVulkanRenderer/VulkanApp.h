@@ -7,6 +7,11 @@
 #include "VulkanCore/WindowSurface.h"
 #include "VulkanCore/Swapchain.h"
 #include "VulkanCore/RenderPass.h"
+#include "VulkanCore/Pipeline.h"
+#include "VulkanCore/CommandBuffer.h"
+#include "VulkanCore/Semaphore.h"
+#include "VulkanCore/Fence.h"
+#include "Factories/RenderPassFactory.h"
 
 namespace VKFW
 {
@@ -25,6 +30,14 @@ class VulkanApp
     std::shared_ptr<vulkancore::SwapChain>     mSwapchain   = nullptr;
     std::shared_ptr<vulkancore::RenderPass>    mRenderPass  = nullptr;
 
+    std::shared_ptr<vulkancore::Pipeline> mPipeline = nullptr;
+    std::vector<std::shared_ptr<vulkancore::CommandBuffer>> mCommandBuffers;
+
+    std::vector<std::shared_ptr<vulkancore::Semaphore>> mImageAvailableSemaphores;
+    std::vector<std::shared_ptr<vulkancore::Semaphore>> mRenderFinishedSemaphores;
+    std::vector<std::shared_ptr<vulkancore::Fence>>     mFences;
+    uint32_t                                            mCurrentFrame = 0;
+
     int  mWidth;
     int  mHeight;
     bool mFramebufferResized;
@@ -36,7 +49,9 @@ class VulkanApp
     void onResize(int w, int h);
 
   private:
-    std::shared_ptr<vulkancore::RenderPass> createRenderPass();
+    void createSyncObjectes();
+    std::shared_ptr<vulkancore::Pipeline> createPipeline();
+    void recordCommandBuffers();
     void drawFrame();
 };
 } // namespace VKFW
