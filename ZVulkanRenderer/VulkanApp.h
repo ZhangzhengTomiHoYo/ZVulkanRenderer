@@ -14,6 +14,7 @@
 #include "VulkanCore/DataBuffer.h"
 
 #include "Factories/RenderPassFactory.h"
+#include "Renderer/UniformManager.h"
 
 namespace VKFW
 {
@@ -34,12 +35,16 @@ class VulkanApp
     std::shared_ptr<vulkancore::Pipeline>      mPipeline     = nullptr;
     std::shared_ptr<vulkancore::DataBuffer>    mVertexBuffer = nullptr;
 
+    std::shared_ptr<renderer::UniformManager> mUniformManager = nullptr;
+
     std::vector<std::shared_ptr<vulkancore::CommandBuffer>> mCommandBuffers;
 
     std::vector<std::shared_ptr<vulkancore::Semaphore>> mImageAvailableSemaphores;
     std::vector<std::shared_ptr<vulkancore::Semaphore>> mRenderFinishedSemaphores;
     std::vector<std::shared_ptr<vulkancore::Fence>>     mFences;
     uint32_t                                            mCurrentFrame = 0;
+
+    float mRotation = 0.0f;
 
     int  mWidth;
     int  mHeight;
@@ -56,5 +61,7 @@ class VulkanApp
     std::shared_ptr<vulkancore::Pipeline> createPipeline();
     void recordCommandBuffers();
     void drawFrame();
+    float getFrameTime();
+    void updateUBO(float dt);
 };
 } // namespace VKFW

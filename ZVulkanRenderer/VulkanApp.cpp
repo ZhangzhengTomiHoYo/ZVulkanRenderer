@@ -49,6 +49,12 @@ void VulkanApp::initVulkan()
     // Framebuffer的创建依赖RenderPass 并绑定Swapchain的Imageview
     // 本项目Framebuffer封装在Swapchain中
     mSwapchain->createFrameBuffers(mRenderPass);
+
+    mUniformManager = std::make_shared<renderer::UniformManager>();
+    mUniformManager->init(mDevice, mSwapchain->getImageCount());
+    mUniformManager->attachCameraUBO();
+    mUniformManager->attachObjectUBO();
+    mUniformManager->build();
     
     mPipeline = createPipeline();
     recordCommandBuffers();
@@ -60,6 +66,9 @@ void VulkanApp::mainLoop()
     while (!mWindow->shouldClose())
     {
         mWindow->pollEvents();
+        drawFrame();
+        float dt = getFrameTime();
+        updateUBO(dt);
         drawFrame();
     }
     vkDeviceWaitIdle(mDevice->getDevice());
@@ -193,8 +202,13 @@ std::shared_ptr<vulkancore::Pipeline> VulkanApp::createPipeline()
 
     // === 管线布局：暂不使用描述符集和推送常量 ===
     // TODO：为 UBO 添加描述符集布局
+    static VkDescriptorSetLayout descLayouts[] = { 
+        mUniformManager->getLayout()->getLayout()
+    };
+
     pipeline->mPipelineLayoutInfo.sType                  = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
-    pipeline->mPipelineLayoutInfo.setLayoutCount         = 0;
+    pipeline->mPipelineLayoutInfo.setLayoutCount         = 1;
+    pipeline->mPipelineLayoutInfo.pSetLayouts            = descLayouts;
     pipeline->mPipelineLayoutInfo.pushConstantRangeCount = 0;
 
     pipeline->build();
@@ -230,6 +244,9 @@ void VulkanApp::recordCommandBuffers()
 
         // 绑定图形管线
         mCommandBuffers[i]->bindGraphicPipeline(mPipeline);
+
+        // 绑定描述符集
+        mCommandBuffers[i]->bindDescriptorSets(mPipeline, mUniformManager->getDescriptorSet(i));
 
         VkBuffer vertexBuffers[] = {mVertexBuffer->getBuffer()};
         VkDeviceSize offsets[]       = {0};
@@ -311,6 +328,36 @@ void VulkanApp::drawFrame()
 
     // 6. 下一帧使用的同步资源下标
     mCurrentFrame = (mCurrentFrame + 1) % mSwapchain->getImageCount();
+}
+
+float VulkanApp::getFrameTime()
+{
+    static double lastTime = 0.0f;
+    double        currentTime = glfwGetTime();
+    float         deltaTime   = static_cast<float>(currentTime - lastTime);
+    lastTime                  = currentTime;
+    return deltaTime;
+}
+
+void VulkanApp::updateUBO(float dt)
+{
+    mRotation += dt * glm::radians(45.0f);
+
+    ObjectUBO obj;
+    obj.model = glm::rotate(glm::mat4(1.0f), mRotation, glm::vec3(0.0f, 0.0f, 1.0f));
+
+    CameraUBO cam;
+    cam.view = glm::lookAt(
+        glm::vec3(0.0f, 0.0f, 2.0f),
+        glm::vec3(0.0f, 0.0f, 0.0f),
+        glm::vec3(0.0f, 1.0f, 0.0f)
+    );
+
+    float aspect = static_cast<float>(mWidth) / mHeight;
+    cam.proj     = glm::perspective(glm::radians(45.0f), aspect, 0.1f, 100.0f);
+
+    mUniformManager->updateObjectUBO(obj, mCurrentFrame);
+    mUniformManager->updateCameraUBO(cam, mCurrentFrame);
 }
 
 } // namespace VKFW

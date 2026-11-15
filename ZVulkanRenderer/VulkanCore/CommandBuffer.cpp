@@ -60,6 +60,11 @@ void CommandBuffer::draw(uint32_t vertexCount)
     vkCmdDraw(mCommandBuffer, vertexCount, 1, 0, 0);
 }
 
+void CommandBuffer::bindDescriptorSets(const std::shared_ptr<Pipeline> &pipeline, VkDescriptorSet descriptorSet) 
+{
+    vkCmdBindDescriptorSets(mCommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline->getPipelineLayout(), 0, 1, &descriptorSet, 0, nullptr);
+}
+
 void CommandBuffer::copyBufferToBuffer(const VkBuffer &source, const VkBuffer &destination, uint32_t count, const std::vector<VkBufferCopy> &regions)
 {
     vkCmdCopyBuffer(mCommandBuffer, source, destination, count, regions.data());

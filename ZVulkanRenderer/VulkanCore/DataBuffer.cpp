@@ -30,6 +30,10 @@ DataBuffer::DataBuffer(const std::shared_ptr<Device> &device, VkDeviceSize size,
         throw std::runtime_error("failed to allocate buffer memory");
 
     vkBindBufferMemory(mDevice->getDevice(), mBuffer, mMemory, 0);
+
+    mBufferInfo.buffer = mBuffer;
+    mBufferInfo.offset = 0;
+    mBufferInfo.range  = size;
 }
 
 DataBuffer::~DataBuffer()
@@ -55,6 +59,11 @@ std::shared_ptr<DataBuffer> DataBuffer::createStageBuffer(const std::shared_ptr<
     return buffer;
 }
 
+std::shared_ptr<DataBuffer> DataBuffer::createUniformBuffer(const std::shared_ptr<Device> &device, VkDeviceSize size)
+{
+    auto buffer = std::make_shared<DataBuffer>(device, size, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+    return buffer;
+}
 void DataBuffer::updateBufferByMap(const void *data, VkDeviceSize size)
 {
     void *mappedData = nullptr;                                          // 准备接收CPU可访问的内存地址
