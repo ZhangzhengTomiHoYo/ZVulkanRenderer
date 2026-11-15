@@ -29,7 +29,9 @@ class CommandBuffer
     // TODO L13: void bindIndexBuffer(...)
     // TODO L12: void bindDescriptorSet(...)
     // TODO Part2: void pushConstants(...)
-    // TODO L14: void copyBufferToBuffer(...)
+    void copyBufferToBuffer(const VkBuffer &source, const VkBuffer &destination, uint32_t count, const std::vector<VkBufferCopy> &regions);
+    void submitCommandBuffer(VkQueue queue);
+    void waitCommandBuffer(VkQueue queue);
     // TODO L14: void copyBufferToImage(...)
     // TODO L14: void transferImageLayout(...)
 

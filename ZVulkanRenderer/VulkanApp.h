@@ -11,6 +11,8 @@
 #include "VulkanCore/CommandBuffer.h"
 #include "VulkanCore/Semaphore.h"
 #include "VulkanCore/Fence.h"
+#include "VulkanCore/DataBuffer.h"
+
 #include "Factories/RenderPassFactory.h"
 
 namespace VKFW
@@ -22,15 +24,16 @@ class VulkanApp
     void run();
 
   private:
-    std::shared_ptr<platform::Window>          mWindow      = nullptr;
-    std::shared_ptr<vulkancore::Instance>      mInstance    = nullptr;
-    std::shared_ptr<vulkancore::WindowSurface> mSurface     = nullptr;
-    std::shared_ptr<vulkancore::Device>        mDevice      = nullptr;
-    std::shared_ptr<vulkancore::CommandPool>   mCommandPool = nullptr;
-    std::shared_ptr<vulkancore::SwapChain>     mSwapchain   = nullptr;
-    std::shared_ptr<vulkancore::RenderPass>    mRenderPass  = nullptr;
+    std::shared_ptr<platform::Window>          mWindow       = nullptr;
+    std::shared_ptr<vulkancore::Instance>      mInstance     = nullptr;
+    std::shared_ptr<vulkancore::WindowSurface> mSurface      = nullptr;
+    std::shared_ptr<vulkancore::Device>        mDevice       = nullptr;
+    std::shared_ptr<vulkancore::CommandPool>   mCommandPool  = nullptr;
+    std::shared_ptr<vulkancore::SwapChain>     mSwapchain    = nullptr;
+    std::shared_ptr<vulkancore::RenderPass>    mRenderPass   = nullptr;
+    std::shared_ptr<vulkancore::Pipeline>      mPipeline     = nullptr;
+    std::shared_ptr<vulkancore::DataBuffer>    mVertexBuffer = nullptr;
 
-    std::shared_ptr<vulkancore::Pipeline> mPipeline = nullptr;
     std::vector<std::shared_ptr<vulkancore::CommandBuffer>> mCommandBuffers;
 
     std::vector<std::shared_ptr<vulkancore::Semaphore>> mImageAvailableSemaphores;

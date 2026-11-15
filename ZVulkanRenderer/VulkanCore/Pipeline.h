@@ -22,7 +22,7 @@ class Pipeline
     void build();
 
   public:
-    // all pipeline states are public so VulkanApp can configure them directly
+    // 所有的 PSO 都是public的  以便于 VulkanApp 能够直接配置他们
     VkPipelineVertexInputStateCreateInfo   mVertexInputState{};
     VkPipelineInputAssemblyStateCreateInfo mAssemblyState{};
     VkPipelineViewportStateCreateInfo      mViewportState{};

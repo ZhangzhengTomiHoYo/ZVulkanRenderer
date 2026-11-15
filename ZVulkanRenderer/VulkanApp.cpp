@@ -1,6 +1,18 @@
 #include "VulkanApp.h"
 #include <spdlog/spdlog.h>
 
+struct Vertex
+{
+    float pos[2];
+    float color[3];
+};
+
+static const std::vector<Vertex> vertices = {
+    {{0.0f, -0.5f}, {1.0f, 0.0f, 0.0f}}, // top    -- red
+    {{0.5f, 0.5f}, {0.0f, 1.0f, 0.0f}},  // bottom right -- green
+    {{-0.5f, 0.5f}, {0.0f, 0.0f, 1.0f}}, // bottom left  -- blue
+};
+
 namespace VKFW
 {
 void VulkanApp::run()
@@ -29,6 +41,8 @@ void VulkanApp::initVulkan()
     spdlog::info("Instance + Surface + Device + CommandPool + Swapchain ready");
 
     mRenderPass = factories::RenderPassFactory::CreateSimpleRenderPass(mDevice, mSwapchain->getSwapChainImageFormat());
+
+    mVertexBuffer = vulkancore::DataBuffer::createVertexBuffer(mDevice, sizeof(Vertex) * vertices.size(), (void *)vertices.data());
 
     // === Framebuffer 创建 ===
     // Swapchain RenderPass Framebuffer 三者密不可分 (离屏渲染除外)
@@ -98,11 +112,33 @@ std::shared_ptr<vulkancore::Pipeline> VulkanApp::createPipeline()
     auto fragShader = std::make_shared<vulkancore::Shader>(mDevice, "spvs/hello_frag.spv", VK_SHADER_STAGE_FRAGMENT_BIT, "main");
     pipeline->setShaderGroup({vertShader, fragShader});
 
-    // === 顶点输入：暂不使用顶点缓冲区，顶点数据写在着色器中 ===
+    // === 顶点输入 ===
     // TODO：添加顶点绑定描述和顶点属性描述
+    VkVertexInputBindingDescription binding{};
+    binding.binding = 0;
+    binding.stride  = sizeof(Vertex);
+    binding.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
+
+    VkVertexInputAttributeDescription posAttr{};
+    posAttr.binding = 0;
+    posAttr.location = 0;
+    posAttr.format   = VK_FORMAT_R32G32_SFLOAT;
+    posAttr.offset   = 0;
+
+    VkVertexInputAttributeDescription colorAttr{};
+    colorAttr.binding = 0;
+    colorAttr.location = 1;
+    colorAttr.format   = VK_FORMAT_R32G32B32A32_SFLOAT;
+    colorAttr.offset   = offsetof(Vertex, color);
+
+    static std::vector<VkVertexInputBindingDescription> bindings = {binding};
+    static std::vector<VkVertexInputAttributeDescription> attributes = {posAttr, colorAttr};
+    
     pipeline->mVertexInputState.sType                           = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
-    pipeline->mVertexInputState.vertexBindingDescriptionCount   = 0;
-    pipeline->mVertexInputState.vertexAttributeDescriptionCount = 0;
+    pipeline->mVertexInputState.vertexBindingDescriptionCount   = static_cast<uint32_t>(bindings.size());
+    pipeline->mVertexInputState.pVertexBindingDescriptions      = bindings.data();
+    pipeline->mVertexInputState.vertexAttributeDescriptionCount = static_cast<uint32_t>(attributes.size());
+    pipeline->mVertexInputState.pVertexAttributeDescriptions    = attributes.data();
 
     // === 输入装配：每三个顶点组成一个三角形 ===
     pipeline->mAssemblyState.sType                  = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
@@ -195,6 +231,10 @@ void VulkanApp::recordCommandBuffers()
         // 绑定图形管线
         mCommandBuffers[i]->bindGraphicPipeline(mPipeline);
 
+        VkBuffer vertexBuffers[] = {mVertexBuffer->getBuffer()};
+        VkDeviceSize offsets[]       = {0};
+        vkCmdBindVertexBuffers(mCommandBuffers[i]->getCommandBuffer(), 0, 1, vertexBuffers, offsets);
+
         VkViewport viewport{};
         viewport.x        = 0.0f;
         viewport.y        = static_cast<float>(extent.height);
@@ -210,7 +250,7 @@ void VulkanApp::recordCommandBuffers()
 
         vkCmdSetScissor(mCommandBuffers[i]->getCommandBuffer(), 0, 1, &scissor);
 
-        mCommandBuffers[i]->draw(3);
+        mCommandBuffers[i]->draw(vertices.size());
 
         mCommandBuffers[i]->endRenderPass();
         mCommandBuffers[i]->endCommandBuffer();
