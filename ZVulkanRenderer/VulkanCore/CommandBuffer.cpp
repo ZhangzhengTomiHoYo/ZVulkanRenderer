@@ -70,6 +70,22 @@ void CommandBuffer::copyBufferToBuffer(const VkBuffer &source, const VkBuffer &d
     vkCmdCopyBuffer(mCommandBuffer, source, destination, count, regions.data());
 }
 
+void CommandBuffer::copyBufferToImage(VkBuffer src, VkImage dst, VkImageLayout dstLayout, uint32_t width, uint32_t height) 
+{
+    VkBufferImageCopy region{};
+    region.bufferOffset                    = 0;
+    region.bufferRowLength                 = 0;
+    region.bufferImageHeight               = 0;
+    region.imageSubresource.aspectMask     = VK_IMAGE_ASPECT_COLOR_BIT;
+    region.imageSubresource.mipLevel       = 0;
+    region.imageSubresource.baseArrayLayer = 0;
+    region.imageSubresource.layerCount     = 1;
+    region.imageOffset                     = {0, 0, 0};
+    region.imageExtent                     = {width, height, 1};
+
+    vkCmdCopyBufferToImage(mCommandBuffer, src, dst, dstLayout, 1, &region);
+}
+
 void CommandBuffer::submitCommandBuffer(VkQueue queue)
 {
     VkSubmitInfo submitInfo{};

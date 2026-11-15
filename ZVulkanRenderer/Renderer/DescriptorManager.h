@@ -12,16 +12,17 @@
 namespace VKFW::renderer
 {
 
-class UniformManager
+class DescriptorManager
 {
   public:
-    UniformManager()  = default;
-    ~UniformManager() = default;
+    DescriptorManager()  = default;
+    ~DescriptorManager() = default;
 
     void init(const std::shared_ptr<vulkancore::Device> &device, int frameCount);
 
     void attachCameraUBO(); // binding 0：观察矩阵和投影矩阵
     void attachObjectUBO(); // binding 1：模型矩阵
+    void attachTexture(const std::shared_ptr<vulkancore::Texture> &texture);
     // TODO：绑定纹理和采样器
 
     void build();
@@ -35,7 +36,7 @@ class UniformManager
   private:
     std::shared_ptr<vulkancore::Device>                        mDevice     = nullptr;
     int                                                        mFrameCount = 1;
-    std::vector<std::shared_ptr<vulkancore::UniformParameter>> mParams;
+    std::vector<std::shared_ptr<vulkancore::DescriptorParameter>> mParams;
 
     std::shared_ptr<vulkancore::DescriptorSetLayout> mLayout        = nullptr;
     std::shared_ptr<vulkancore::DescriptorPool>      mPool          = nullptr;

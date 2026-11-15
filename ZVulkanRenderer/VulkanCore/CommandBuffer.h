@@ -22,19 +22,21 @@ class CommandBuffer
     void beginRenderPass(const VkRenderPassBeginInfo &renderPassBeginInfo, VkSubpassContents contents = VK_SUBPASS_CONTENTS_INLINE);
     void endRenderPass();
 
+    void submitCommandBuffer(VkQueue queue);
+    void waitCommandBuffer(VkQueue queue);
+
     void draw(uint32_t vertexCount);
 
     void bindGraphicPipeline(const std::shared_ptr<Pipeline> &pipeline);
-    
+    void bindDescriptorSets(const std::shared_ptr<Pipeline> &pipeline, VkDescriptorSet descriptorSet); 
 
     // TODO L11: void bindVertexBuffer(...)
     // TODO L13: void bindIndexBuffer(...)
     // TODO L12: void bindDescriptorSet(...)、
-    void bindDescriptorSets(const std::shared_ptr<Pipeline> &pipeline, VkDescriptorSet descriptorSet);
+
     // TODO Part2: void pushConstants(...)
     void copyBufferToBuffer(const VkBuffer &source, const VkBuffer &destination, uint32_t count, const std::vector<VkBufferCopy> &regions);
-    void submitCommandBuffer(VkQueue queue);
-    void waitCommandBuffer(VkQueue queue);
+    void copyBufferToImage(VkBuffer src, VkImage dst, VkImageLayout dstLayout, uint32_t width, uint32_t height);
     // TODO L14: void copyBufferToImage(...)
     // TODO L14: void transferImageLayout(...)
 

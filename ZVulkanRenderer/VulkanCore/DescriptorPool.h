@@ -1,6 +1,6 @@
 #pragma once
 #include "Device.h"
-#include "UniformParameter.h"
+#include "DescriptorParameter.h"
 #include <memory>
 #include <vector>
 
@@ -13,7 +13,7 @@ class DescriptorPool
     DescriptorPool(const std::shared_ptr<Device> &device);
     ~DescriptorPool();
 
-    void build(const std::vector<std::shared_ptr<UniformParameter>> &parameters, int frameCount);
+    void build(const std::vector<std::shared_ptr<DescriptorParameter>> &parameters, int frameCount);
 
     VkDescriptorPool getDescriptorPool() const { return mPool; }
 

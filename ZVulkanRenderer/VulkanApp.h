@@ -12,9 +12,10 @@
 #include "VulkanCore/Semaphore.h"
 #include "VulkanCore/Fence.h"
 #include "VulkanCore/DataBuffer.h"
+#include "VulkanCore/Texture.h"
 
 #include "Factories/RenderPassFactory.h"
-#include "Renderer/UniformManager.h"
+#include "Renderer/DescriptorManager.h"
 
 namespace VKFW
 {
@@ -34,8 +35,9 @@ class VulkanApp
     std::shared_ptr<vulkancore::RenderPass>    mRenderPass   = nullptr;
     std::shared_ptr<vulkancore::Pipeline>      mPipeline     = nullptr;
     std::shared_ptr<vulkancore::DataBuffer>    mVertexBuffer = nullptr;
+    std::shared_ptr<vulkancore::Texture>       mTexture      = nullptr;
 
-    std::shared_ptr<renderer::UniformManager> mUniformManager = nullptr;
+    std::shared_ptr<renderer::DescriptorManager> mDescriptorManager = nullptr;
 
     std::vector<std::shared_ptr<vulkancore::CommandBuffer>> mCommandBuffers;
 

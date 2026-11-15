@@ -12,7 +12,7 @@ DescriptorSetLayout::~DescriptorSetLayout()
         vkDestroyDescriptorSetLayout(mDevice->getDevice(), mLayout, nullptr);
 }
 
-void DescriptorSetLayout::build(const std::vector<std::shared_ptr<UniformParameter>> &parameters)
+void DescriptorSetLayout::build(const std::vector<std::shared_ptr<DescriptorParameter>> &parameters)
 {
     mBindingParameters = parameters;
 

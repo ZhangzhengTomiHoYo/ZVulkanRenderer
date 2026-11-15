@@ -3,14 +3,21 @@
 
 struct Vertex
 {
-    float pos[2];
-    float color[3];
+    glm::vec2 pos;
+    glm::vec3 color;
+    glm::vec2 uv; // L13: NEW
 };
 
-static const std::vector<Vertex> vertices = {
-    {{0.0f, -0.5f}, {1.0f, 0.0f, 0.0f}}, // top    -- red
-    {{0.5f, 0.5f}, {0.0f, 1.0f, 0.0f}},  // bottom right -- green
-    {{-0.5f, 0.5f}, {0.0f, 0.0f, 1.0f}}, // bottom left  -- blue
+// quad as two triangles, with UV
+const std::vector<Vertex> vertices = {
+    // triangle 1
+    {{-0.5f, -0.5f}, {1.0f, 1.0f, 1.0f}, {0.0f, 1.0f}},
+    {{0.5f, -0.5f}, {1.0f, 1.0f, 1.0f}, {1.0f, 1.0f}},
+    {{0.5f, 0.5f}, {1.0f, 1.0f, 1.0f}, {1.0f, 0.0f}},
+    // triangle 2
+    {{0.5f, 0.5f}, {1.0f, 1.0f, 1.0f}, {1.0f, 0.0f}},
+    {{-0.5f, 0.5f}, {1.0f, 1.0f, 1.0f}, {0.0f, 0.0f}},
+    {{-0.5f, -0.5f}, {1.0f, 1.0f, 1.0f}, {0.0f, 1.0f}},
 };
 
 namespace VKFW
@@ -50,11 +57,11 @@ void VulkanApp::initVulkan()
     // 本项目Framebuffer封装在Swapchain中
     mSwapchain->createFrameBuffers(mRenderPass);
 
-    mUniformManager = std::make_shared<renderer::UniformManager>();
-    mUniformManager->init(mDevice, mSwapchain->getImageCount());
-    mUniformManager->attachCameraUBO();
-    mUniformManager->attachObjectUBO();
-    mUniformManager->build();
+    mDescriptorManager = std::make_shared<renderer::DescriptorManager>();
+    mDescriptorManager->init(mDevice, mSwapchain->getImageCount());
+    mDescriptorManager->attachCameraUBO();
+    mDescriptorManager->attachObjectUBO();
+    mDescriptorManager->build();
     
     mPipeline = createPipeline();
     recordCommandBuffers();
@@ -140,8 +147,14 @@ std::shared_ptr<vulkancore::Pipeline> VulkanApp::createPipeline()
     colorAttr.format   = VK_FORMAT_R32G32B32A32_SFLOAT;
     colorAttr.offset   = offsetof(Vertex, color);
 
+    VkVertexInputAttributeDescription uvAttr{};
+    uvAttr.binding = 0;
+    uvAttr.location = 2;
+    uvAttr.format   = VK_FORMAT_R32G32_SFLOAT;
+    uvAttr.offset   = offsetof(Vertex, uv);
+
     static std::vector<VkVertexInputBindingDescription> bindings = {binding};
-    static std::vector<VkVertexInputAttributeDescription> attributes = {posAttr, colorAttr};
+    static std::vector<VkVertexInputAttributeDescription> attributes = {posAttr, colorAttr, uvAttr};
     
     pipeline->mVertexInputState.sType                           = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
     pipeline->mVertexInputState.vertexBindingDescriptionCount   = static_cast<uint32_t>(bindings.size());
@@ -203,7 +216,7 @@ std::shared_ptr<vulkancore::Pipeline> VulkanApp::createPipeline()
     // === 管线布局：暂不使用描述符集和推送常量 ===
     // TODO：为 UBO 添加描述符集布局
     static VkDescriptorSetLayout descLayouts[] = { 
-        mUniformManager->getLayout()->getLayout()
+        mDescriptorManager->getLayout()->getLayout()
     };
 
     pipeline->mPipelineLayoutInfo.sType                  = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
@@ -246,7 +259,7 @@ void VulkanApp::recordCommandBuffers()
         mCommandBuffers[i]->bindGraphicPipeline(mPipeline);
 
         // 绑定描述符集
-        mCommandBuffers[i]->bindDescriptorSets(mPipeline, mUniformManager->getDescriptorSet(i));
+        mCommandBuffers[i]->bindDescriptorSets(mPipeline, mDescriptorManager->getDescriptorSet(i));
 
         VkBuffer vertexBuffers[] = {mVertexBuffer->getBuffer()};
         VkDeviceSize offsets[]       = {0};
@@ -356,8 +369,8 @@ void VulkanApp::updateUBO(float dt)
     float aspect = static_cast<float>(mWidth) / mHeight;
     cam.proj     = glm::perspective(glm::radians(45.0f), aspect, 0.1f, 100.0f);
 
-    mUniformManager->updateObjectUBO(obj, mCurrentFrame);
-    mUniformManager->updateCameraUBO(cam, mCurrentFrame);
+    mDescriptorManager->updateObjectUBO(obj, mCurrentFrame);
+    mDescriptorManager->updateCameraUBO(cam, mCurrentFrame);
 }
 
 } // namespace VKFW

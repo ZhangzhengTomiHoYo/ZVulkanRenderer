@@ -11,7 +11,7 @@ DescriptorPool::~DescriptorPool()
     destroyPool();
 }
 
-void DescriptorPool::build(const std::vector<std::shared_ptr<UniformParameter>> &parameters, int frameCount)
+void DescriptorPool::build(const std::vector<std::shared_ptr<DescriptorParameter>> &parameters, int frameCount)
 {
     destroyPool();
 
@@ -20,7 +20,12 @@ void DescriptorPool::build(const std::vector<std::shared_ptr<UniformParameter>> 
     for (const auto &parameter : parameters)
         if (parameter->mDescriptorType == VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER)
             uboCount += parameter->mCount;
+
     // TODO：统计组合图像采样器描述符数量
+    uint32_t samplerCount = 0;
+    for (const auto &p : parameters)
+        if (p->mDescriptorType == VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER)
+            samplerCount += p->mCount;
 
     std::vector<VkDescriptorPoolSize> poolSizes;
     if (uboCount > 0)
@@ -28,6 +33,13 @@ void DescriptorPool::build(const std::vector<std::shared_ptr<UniformParameter>> 
         VkDescriptorPoolSize poolSize{};
         poolSize.type            = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
         poolSize.descriptorCount = uboCount * frameCount;
+        poolSizes.push_back(poolSize);
+    }
+    if (samplerCount > 0)
+    {
+        VkDescriptorPoolSize poolSize{};
+        poolSize.type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+        poolSize.descriptorCount = samplerCount * frameCount;
         poolSizes.push_back(poolSize);
     }
 
