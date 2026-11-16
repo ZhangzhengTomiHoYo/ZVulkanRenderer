@@ -16,6 +16,7 @@
 
 #include "Factories/RenderPassFactory.h"
 #include "Renderer/DescriptorManager.h"
+#include "Renderer/Model.h"
 
 namespace VKFW
 {
@@ -34,10 +35,11 @@ class VulkanApp
     std::shared_ptr<vulkancore::SwapChain>     mSwapchain    = nullptr;
     std::shared_ptr<vulkancore::RenderPass>    mRenderPass   = nullptr;
     std::shared_ptr<vulkancore::Pipeline>      mPipeline     = nullptr;
-    std::shared_ptr<vulkancore::DataBuffer>    mVertexBuffer = nullptr;
     std::shared_ptr<vulkancore::Texture>       mTexture      = nullptr;
 
     std::shared_ptr<renderer::DescriptorManager> mDescriptorManager = nullptr;
+
+    std::shared_ptr<renderer::Model> mModel = nullptr;
 
     std::vector<std::shared_ptr<vulkancore::CommandBuffer>> mCommandBuffers;
 
@@ -59,11 +61,13 @@ class VulkanApp
     void onResize(int w, int h);
 
   private:
-    void createSyncObjectes();
-    std::shared_ptr<vulkancore::Pipeline> createPipeline();
-    void recordCommandBuffers();
-    void drawFrame();
+    void  recreateSwapchain();
+    void  createSyncObjectes();
+    void  recordCommandBuffers();
+    void  drawFrame();
     float getFrameTime();
-    void updateUBO(float dt);
+    void  updateUBO(float dt);
+
+    std::shared_ptr<vulkancore::Pipeline> createPipeline();
 };
 } // namespace VKFW

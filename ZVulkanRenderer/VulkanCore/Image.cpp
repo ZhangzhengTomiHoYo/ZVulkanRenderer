@@ -41,6 +41,50 @@ std::shared_ptr<Image> Image::createImageFromFile(const std::shared_ptr<Device> 
     return image;
 }
 
+std::shared_ptr<Image> Image::createDepthStencil(const std::shared_ptr<Device> &device, uint32_t width, uint32_t height, VkFormat depthFormat)
+{
+    if (depthFormat == VK_FORMAT_UNDEFINED)
+    {
+        depthFormat = findDepthFormat(device);
+    }
+
+    ImageDescription desc{};
+    desc.width       = width;
+    desc.height      = height;
+    desc.format      = depthFormat;
+    desc.usage       = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
+    desc.aspectFlags = VK_IMAGE_ASPECT_DEPTH_BIT;
+
+    if (depthFormat == VK_FORMAT_D32_SFLOAT_S8_UINT || depthFormat == VK_FORMAT_D24_UNORM_S8_UINT)
+        desc.aspectFlags |= VK_IMAGE_ASPECT_STENCIL_BIT;
+
+    return std::make_shared<Image>(device, desc);
+}
+
+VkFormat Image::findDepthFormat(const std::shared_ptr<Device> &device, VkImageTiling tiling, VkFormatFeatureFlags features)
+{
+    std::vector<VkFormat> depthFormats = {
+        VK_FORMAT_D32_SFLOAT,
+        VK_FORMAT_D32_SFLOAT_S8_UINT,
+        VK_FORMAT_D24_UNORM_S8_UINT
+    };
+
+    for (const auto& format : depthFormats)
+    {
+        VkFormatProperties props;
+        vkGetPhysicalDeviceFormatProperties(device->getPhysicalDevice(), format, &props);
+        if (tiling == VK_IMAGE_TILING_LINEAR && (props.linearTilingFeatures & features) == features)
+        {
+            return format;
+        }
+        else if (tiling == VK_IMAGE_TILING_OPTIMAL && (props.optimalTilingFeatures & features) == features)
+        {
+            return format;
+        }
+    }
+    throw std::runtime_error("failed to find supported depth format");
+}
+
 Image::Image(const std::shared_ptr<Device> &device, const ImageDescription &description) : mDevice(device), mDescription(description)
 {
     createResources();

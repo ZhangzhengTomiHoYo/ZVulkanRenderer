@@ -11,13 +11,12 @@ class DataBuffer
 {
   public:
     static std::shared_ptr<DataBuffer> createVertexBuffer(const std::shared_ptr<Device> &device, VkDeviceSize size, void *pData);
-
+    static std::shared_ptr<DataBuffer> createIndexBuffer(const std::shared_ptr<Device> &device, VkDeviceSize size, void *pData);
     static std::shared_ptr<DataBuffer> createStageBuffer(const std::shared_ptr<Device> &device, VkDeviceSize size, void *pData = nullptr);
 
-    // TODO：创建 Uniform Buffer
     static std::shared_ptr<DataBuffer> createUniformBuffer(const std::shared_ptr<Device> &device, VkDeviceSize size);
 
-    // TODO：创建索引缓冲区
+
 
     DataBuffer(const std::shared_ptr<Device> &device, VkDeviceSize size, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties);
     ~DataBuffer();

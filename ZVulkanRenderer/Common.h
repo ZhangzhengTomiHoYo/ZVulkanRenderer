@@ -2,7 +2,7 @@
 #include <memory>
 #include <utility>
 
-#define GLW_FORCE_ZERO_TO_ONE
+#define GLM_FORCE_DEPTH_ZERO_TO_ONE
 #include <GLM/glm.hpp>
 #include <GLM/gtc/matrix_transform.hpp>
 

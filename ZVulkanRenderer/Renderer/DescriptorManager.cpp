@@ -44,7 +44,7 @@ void DescriptorManager::attachTexture(const std::shared_ptr<vulkancore::Texture>
 
     parameter->mBinding        = static_cast<uint32_t>(mParams.size());
     parameter->mDescriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-    parameter->mSize           = 1;
+    parameter->mCount          = 1;
     parameter->mStageFlags     = VK_SHADER_STAGE_FRAGMENT_BIT;
 
     for (int i = 0; i < mFrameCount; i++)

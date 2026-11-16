@@ -60,9 +60,24 @@ void CommandBuffer::draw(uint32_t vertexCount)
     vkCmdDraw(mCommandBuffer, vertexCount, 1, 0, 0);
 }
 
+void CommandBuffer::drawIndexed(uint32_t indexCount, uint32_t instanceCount, uint32_t firstIndex, int32_t vertexOffset, uint32_t firstInstance) 
+{
+    vkCmdDrawIndexed(mCommandBuffer, indexCount, instanceCount, firstIndex, vertexOffset, firstInstance);
+}
+
 void CommandBuffer::bindDescriptorSets(const std::shared_ptr<Pipeline> &pipeline, VkDescriptorSet descriptorSet) 
 {
     vkCmdBindDescriptorSets(mCommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline->getPipelineLayout(), 0, 1, &descriptorSet, 0, nullptr);
+}
+
+void CommandBuffer::bindVertexBuffer(const std::vector<VkBuffer> &buffers, uint32_t binding, std::vector<VkDeviceSize> offsets) 
+{
+    vkCmdBindVertexBuffers(mCommandBuffer, binding, static_cast<uint32_t>(buffers.size()), buffers.data(), offsets.data());
+}
+
+void CommandBuffer::bindIndexBuffer(VkBuffer buffer, uint32_t offset, VkIndexType indexType)
+{
+    vkCmdBindIndexBuffer(mCommandBuffer, buffer, offset, indexType);
 }
 
 void CommandBuffer::copyBufferToBuffer(const VkBuffer &source, const VkBuffer &destination, uint32_t count, const std::vector<VkBufferCopy> &regions)

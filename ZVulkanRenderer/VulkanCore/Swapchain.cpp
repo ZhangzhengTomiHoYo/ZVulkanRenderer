@@ -8,13 +8,51 @@
 namespace VKFW::vulkancore
 {
 
-SwapChain::SwapChain(const std::shared_ptr<Device> &device, const std::shared_ptr<platform::Window> &window, const std::shared_ptr<WindowSurface> &surface) : mDevice(device), mWindow(window), mSurface(surface)
+SwapChain::SwapChain(const std::shared_ptr<Device> &device, const std::shared_ptr<platform::Window> &window, const std::shared_ptr<WindowSurface> &surface, const std::shared_ptr<CommandPool> &commandPool) 
+    : mDevice(device), mWindow(window), mSurface(surface), mCommandPool(commandPool)
+{
+    createResources();
+}
+
+SwapChain::~SwapChain()
+{
+    releaseResources();
+}
+
+void SwapChain::createFrameBuffers(const std::shared_ptr<RenderPass> &renderPass)
+{
+    mSwapChainFramebuffers.resize(mImageCount);
+    for (size_t i = 0; i < mImageCount; i++)
+    {
+        std::array<VkImageView, 2> attachments = {
+            mSwapChainImageViews[i], 
+            mDepthImages[i]->getImageView()
+        };
+
+        VkFramebufferCreateInfo framebufferCreateInfo = {};
+        framebufferCreateInfo.sType           = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
+        framebufferCreateInfo.renderPass      = renderPass->getRenderPass();
+        framebufferCreateInfo.attachmentCount = static_cast<uint32_t>(attachments.size());
+        framebufferCreateInfo.pAttachments    = attachments.data();
+        framebufferCreateInfo.width           = mSwapChainExtent.width;
+        framebufferCreateInfo.height          = mSwapChainExtent.height;
+        framebufferCreateInfo.layers          = 1;
+        VkResult result = vkCreateFramebuffer(mDevice->getDevice(), &framebufferCreateInfo, nullptr, &mSwapChainFramebuffers[i]);
+        if (result != VK_SUCCESS)
+        {
+            throw std::runtime_error("Failed to create framebuffer");
+        }
+    }
+    spdlog::info("Framebuffers created: {}", mImageCount);
+}
+
+void SwapChain::createResources() 
 {
     // === 查询支持情况，并选择交换链配置 ===
-    auto info        = querySwapChainSupportInfo();              // 查询支持情况
-    auto format      = chooseSurfaceFormat(info.mFormats);       // 图像格式和色彩空间
-    auto presentMode = choosePresentMode(info.mPresentModes);    // 呈现模式
-    auto extent      = chooseSwapExtent(info.mCapabilities);     // 尺寸
+    auto info        = querySwapChainSupportInfo();           // 查询支持情况
+    auto format      = chooseSurfaceFormat(info.mFormats);    // 图像格式和色彩空间
+    auto presentMode = choosePresentMode(info.mPresentModes); // 呈现模式
+    auto extent      = chooseSwapExtent(info.mCapabilities);  // 尺寸
 
     spdlog::info("chosen: format={}  presentMode={}  extent={}x{}", static_cast<int>(format.format), static_cast<int>(presentMode), extent.width, extent.height);
 
@@ -76,9 +114,32 @@ SwapChain::SwapChain(const std::shared_ptr<Device> &device, const std::shared_pt
     {
         mSwapChainImageViews[i] = createImageView(mSwapChainImages[i], mSwapChainFormat, VK_IMAGE_ASPECT_COLOR_BIT, 1);
     }
+
+    mDepthImages.resize(mImageCount);
+    for (size_t i = 0; i < mImageCount; i++)
+    {
+        mDepthImages[i] = Image::createDepthStencil(mDevice, mSwapChainExtent.width, mSwapChainExtent.height, VK_FORMAT_D24_UNORM_S8_UINT);
+        mDepthImages[i]->transitionLayout(VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT, mCommandPool);
+    }
 }
 
-SwapChain::~SwapChain()
+void SwapChain::recreateSwapchain() 
+{
+    vkDeviceWaitIdle(mDevice->getDevice());
+
+    int w, h;
+    glfwGetFramebufferSize(mWindow->getWindow(), &w, &h);
+    while (w == 0 || h == 0)
+    {
+        glfwWaitEvents();
+        glfwGetFramebufferSize(mWindow->getWindow(), &w, &h);
+    }
+
+    releaseResources();
+    createResources();
+}
+
+void SwapChain::releaseResources() 
 {
     for (auto framebuffer : mSwapChainFramebuffers)
         vkDestroyFramebuffer(mDevice->getDevice(), framebuffer, nullptr);
@@ -88,30 +149,6 @@ SwapChain::~SwapChain()
 
     if (mSwapChain != VK_NULL_HANDLE)
         vkDestroySwapchainKHR(mDevice->getDevice(), mSwapChain, nullptr);
-}
-
-void SwapChain::createFrameBuffers(const std::shared_ptr<RenderPass> &renderPass)
-{
-    mSwapChainFramebuffers.resize(mImageCount);
-    for (size_t i = 0; i < mImageCount; i++)
-    {
-        std::array<VkImageView, 1> attachments = {mSwapChainImageViews[i]};
-
-        VkFramebufferCreateInfo framebufferCreateInfo = {};
-        framebufferCreateInfo.sType           = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
-        framebufferCreateInfo.renderPass      = renderPass->getRenderPass();
-        framebufferCreateInfo.attachmentCount = static_cast<uint32_t>(attachments.size());
-        framebufferCreateInfo.pAttachments    = attachments.data();
-        framebufferCreateInfo.width           = mSwapChainExtent.width;
-        framebufferCreateInfo.height          = mSwapChainExtent.height;
-        framebufferCreateInfo.layers          = 1;
-        VkResult result = vkCreateFramebuffer(mDevice->getDevice(), &framebufferCreateInfo, nullptr, &mSwapChainFramebuffers[i]);
-        if (result != VK_SUCCESS)
-        {
-            throw std::runtime_error("Failed to create framebuffer");
-        }
-    }
-    spdlog::info("Framebuffers created: {}", mImageCount);
 }
 
 VkImageView SwapChain::createImageView(VkImage image, VkFormat format, VkImageAspectFlags aspectFlags, uint32_t mipLevels)

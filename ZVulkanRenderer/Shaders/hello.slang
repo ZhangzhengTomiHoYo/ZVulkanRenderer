@@ -1,13 +1,13 @@
 struct VertexInput {
-    [[vk::location(0)]] float2 pos;
-    [[vk::location(1)]] float3 color;
-    [[vk::location(2)]] float2 uv;
+    [[vk::location(0)]] float3 pos;
+    [[vk::location(1)]] float3 uv;
+    [[vk::location(2)]] float3 normal;
 };
 
 struct VertexOutput {
     float4 position : SV_Position;
-    [[vk::location(0)]] float3 color;
-    [[vk::location(1)]] float2 uv;
+    [[vk::location(0)]] float3 uv;
+    [[vk::location(1)]] float3 normal;
 };
 
 struct CameraUBO {
@@ -26,16 +26,15 @@ struct ObjectUBO {
 [shader("vertex")]
 VertexOutput vertMain(VertexInput input) {
     VertexOutput output;
-    float4 worldPos = mul(object.model, float4(input.pos, 0.0, 1.0));
+    float4 worldPos = mul(object.model, float4(input.pos, 1.0));
     float4 viewPos = mul(camera.view, worldPos);
     output.position = mul(camera.proj, viewPos);
-    output.color = input.color;
     output.uv = input.uv;
+    output.normal = input.normal;
     return output;
 }
 
 [shader("fragment")]
 float4 fragMain(VertexOutput input) : SV_Target {
-    float4 texColor = albedo.Sample(input.uv);
-    return texColor;
+    return float4(input.normal, 1.0);
 }

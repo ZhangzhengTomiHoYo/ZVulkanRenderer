@@ -33,6 +33,9 @@ class Image
     static std::shared_ptr<Image> createImageFromFile(const std::shared_ptr<Device> &device, const std::shared_ptr<CommandPool> &commandPool, const std::string &filePath, VkFormat format = VK_FORMAT_R8G8B8A8_SRGB, bool flipVertically = false);
 
     // TODO：创建深度模板图像
+    static std::shared_ptr<Image> createDepthStencil(const std::shared_ptr<Device>& device, uint32_t width, uint32_t height, VkFormat depthFormat = VK_FORMAT_UNDEFINED);
+    static VkFormat findDepthFormat(const std::shared_ptr<Device> &device, VkImageTiling tiling = VK_IMAGE_TILING_OPTIMAL, VkFormatFeatureFlags features = VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT);
+
 
     Image(const std::shared_ptr<Device> &device, const ImageDescription &description);
     ~Image();

@@ -26,18 +26,17 @@ class CommandBuffer
     void waitCommandBuffer(VkQueue queue);
 
     void draw(uint32_t vertexCount);
+    void drawIndexed(uint32_t indexCount, uint32_t instanceCount, uint32_t firstIndex, int32_t vertexOffset, uint32_t firstInstance);
 
     void bindGraphicPipeline(const std::shared_ptr<Pipeline> &pipeline);
     void bindDescriptorSets(const std::shared_ptr<Pipeline> &pipeline, VkDescriptorSet descriptorSet); 
-
-    // TODO L11: void bindVertexBuffer(...)
-    // TODO L13: void bindIndexBuffer(...)
-    // TODO L12: void bindDescriptorSet(...)、
+    
+    void bindVertexBuffer(const std::vector<VkBuffer> &buffers, uint32_t binding = 0, std::vector<VkDeviceSize> offsets = {0});
+    void bindIndexBuffer(VkBuffer buffer, uint32_t offset = 0, VkIndexType indexType = VK_INDEX_TYPE_UINT32);
 
     // TODO Part2: void pushConstants(...)
     void copyBufferToBuffer(const VkBuffer &source, const VkBuffer &destination, uint32_t count, const std::vector<VkBufferCopy> &regions);
     void copyBufferToImage(VkBuffer src, VkImage dst, VkImageLayout dstLayout, uint32_t width, uint32_t height);
-    // TODO L14: void copyBufferToImage(...)
     // TODO L14: void transferImageLayout(...)
 
   private:

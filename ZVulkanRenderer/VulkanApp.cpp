@@ -1,25 +1,6 @@
 #include "VulkanApp.h"
 #include <spdlog/spdlog.h>
 
-struct Vertex
-{
-    glm::vec2 pos;
-    glm::vec3 color;
-    glm::vec2 uv; // L13: NEW
-};
-
-// quad as two triangles, with UV
-const std::vector<Vertex> vertices = {
-    // triangle 1
-    {{-0.5f, -0.5f}, {1.0f, 1.0f, 1.0f}, {0.0f, 1.0f}},
-    {{0.5f, -0.5f}, {1.0f, 1.0f, 1.0f}, {1.0f, 1.0f}},
-    {{0.5f, 0.5f}, {1.0f, 1.0f, 1.0f}, {1.0f, 0.0f}},
-    // triangle 2
-    {{0.5f, 0.5f}, {1.0f, 1.0f, 1.0f}, {1.0f, 0.0f}},
-    {{-0.5f, 0.5f}, {1.0f, 1.0f, 1.0f}, {0.0f, 0.0f}},
-    {{-0.5f, -0.5f}, {1.0f, 1.0f, 1.0f}, {0.0f, 1.0f}},
-};
-
 namespace VKFW
 {
 void VulkanApp::run()
@@ -43,13 +24,14 @@ void VulkanApp::initVulkan()
     mSurface     = std::make_shared<vulkancore::WindowSurface>(mInstance, mWindow);
     mDevice      = std::make_shared<vulkancore::Device>(mInstance, mSurface);
     mCommandPool = std::make_shared<vulkancore::CommandPool>(mDevice);
-    mSwapchain   = std::make_shared<vulkancore::SwapChain>(mDevice, mWindow, mSurface);
+    mSwapchain   = std::make_shared<vulkancore::SwapChain>(mDevice, mWindow, mSurface, mCommandPool);
 
     spdlog::info("Instance + Surface + Device + CommandPool + Swapchain ready");
 
-    mRenderPass = factories::RenderPassFactory::CreateSimpleRenderPass(mDevice, mSwapchain->getSwapChainImageFormat());
+    mRenderPass = factories::RenderPassFactory::CreateRenderPassWithDepth(mDevice, mSwapchain->getSwapChainImageFormat());
 
-    mVertexBuffer = vulkancore::DataBuffer::createVertexBuffer(mDevice, sizeof(Vertex) * vertices.size(), (void *)vertices.data());
+    mModel = std::make_shared<renderer::Model>();
+    mModel->loadModel("../../../Assets/bunny.obj", mDevice);
 
     // === Framebuffer 创建 ===
     // Swapchain RenderPass Framebuffer 三者密不可分 (离屏渲染除外)
@@ -65,7 +47,6 @@ void VulkanApp::initVulkan()
     
     mPipeline = createPipeline();
     recordCommandBuffers();
-
 }
 
 void VulkanApp::mainLoop()
@@ -73,7 +54,7 @@ void VulkanApp::mainLoop()
     while (!mWindow->shouldClose())
     {
         mWindow->pollEvents();
-        drawFrame();
+        
         float dt = getFrameTime();
         updateUBO(dt);
         drawFrame();
@@ -102,7 +83,19 @@ void VulkanApp::onResize(int w, int h)
     spdlog::info("resized: {}x{}", w, h);
 }
 
-void VulkanApp::createSyncObjectes() 
+void VulkanApp::recreateSwapchain() 
+{
+    mSwapchain->recreateSwapchain();
+    mSwapchain->createFrameBuffers(mRenderPass);
+
+    mCommandBuffers.clear();
+    recordCommandBuffers();
+
+    createSyncObjectes();
+    mCurrentFrame = 0;
+}
+
+void VulkanApp::createSyncObjectes()
 {
     const uint32_t count = mSwapchain->getImageCount();
     mImageAvailableSemaphores.clear();
@@ -130,31 +123,8 @@ std::shared_ptr<vulkancore::Pipeline> VulkanApp::createPipeline()
 
     // === 顶点输入 ===
     // TODO：添加顶点绑定描述和顶点属性描述
-    VkVertexInputBindingDescription binding{};
-    binding.binding = 0;
-    binding.stride  = sizeof(Vertex);
-    binding.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
-
-    VkVertexInputAttributeDescription posAttr{};
-    posAttr.binding = 0;
-    posAttr.location = 0;
-    posAttr.format   = VK_FORMAT_R32G32_SFLOAT;
-    posAttr.offset   = 0;
-
-    VkVertexInputAttributeDescription colorAttr{};
-    colorAttr.binding = 0;
-    colorAttr.location = 1;
-    colorAttr.format   = VK_FORMAT_R32G32B32A32_SFLOAT;
-    colorAttr.offset   = offsetof(Vertex, color);
-
-    VkVertexInputAttributeDescription uvAttr{};
-    uvAttr.binding = 0;
-    uvAttr.location = 2;
-    uvAttr.format   = VK_FORMAT_R32G32_SFLOAT;
-    uvAttr.offset   = offsetof(Vertex, uv);
-
-    static std::vector<VkVertexInputBindingDescription> bindings = {binding};
-    static std::vector<VkVertexInputAttributeDescription> attributes = {posAttr, colorAttr, uvAttr};
+    static std::vector<VkVertexInputBindingDescription>   bindings   = mModel->getBindingDescriptions();
+    static std::vector<VkVertexInputAttributeDescription> attributes = mModel->getAttributeDescriptions();
     
     pipeline->mVertexInputState.sType                           = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
     pipeline->mVertexInputState.vertexBindingDescriptionCount   = static_cast<uint32_t>(bindings.size());
@@ -210,8 +180,9 @@ std::shared_ptr<vulkancore::Pipeline> VulkanApp::createPipeline()
     // === 深度与模板：当前关闭，尚未使用深度缓冲区 ===
     // TODO：启用深度测试和深度写入
     pipeline->mDepthStencilState.sType            = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
-    pipeline->mDepthStencilState.depthTestEnable  = VK_FALSE;
-    pipeline->mDepthStencilState.depthWriteEnable = VK_FALSE;
+    pipeline->mDepthStencilState.depthTestEnable  = VK_TRUE;
+    pipeline->mDepthStencilState.depthWriteEnable = VK_TRUE;
+    pipeline->mDepthStencilState.depthCompareOp   = VK_COMPARE_OP_LESS;
 
     // === 管线布局：暂不使用描述符集和推送常量 ===
     // TODO：为 UBO 添加描述符集布局
@@ -241,8 +212,9 @@ void VulkanApp::recordCommandBuffers()
         // 开始录制命令
         mCommandBuffers[i]->beginCommandBuffer();
 
-        VkClearValue clearColor{};
-        clearColor.color = {0.0f, 0.2f, 0.4f, 1.0f};
+        std::array<VkClearValue, 2> clearValues{};
+        clearValues[0].color       = {1.0f, 1.0f, 1.0f, 1.0f};
+        clearValues[1].depthStencil = {1.0f, 0};
 
         VkRenderPassBeginInfo renderPassBeginInfo{};
         renderPassBeginInfo.sType             = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
@@ -250,8 +222,8 @@ void VulkanApp::recordCommandBuffers()
         renderPassBeginInfo.framebuffer       = framebuffers[i];
         renderPassBeginInfo.renderArea.offset = {0, 0};
         renderPassBeginInfo.renderArea.extent = extent;
-        renderPassBeginInfo.clearValueCount   = 1;
-        renderPassBeginInfo.pClearValues      = &clearColor;
+        renderPassBeginInfo.clearValueCount   = static_cast<uint32_t>(clearValues.size());
+        renderPassBeginInfo.pClearValues      = clearValues.data();
 
         mCommandBuffers[i]->beginRenderPass(renderPassBeginInfo);
 
@@ -261,9 +233,9 @@ void VulkanApp::recordCommandBuffers()
         // 绑定描述符集
         mCommandBuffers[i]->bindDescriptorSets(mPipeline, mDescriptorManager->getDescriptorSet(i));
 
-        VkBuffer vertexBuffers[] = {mVertexBuffer->getBuffer()};
-        VkDeviceSize offsets[]       = {0};
-        vkCmdBindVertexBuffers(mCommandBuffers[i]->getCommandBuffer(), 0, 1, vertexBuffers, offsets);
+        //VkBuffer vertexBuffers[] = {mVertexBuffer->getBuffer()};
+        //VkDeviceSize offsets[]       = {0};
+        //vkCmdBindVertexBuffers(mCommandBuffers[i]->getCommandBuffer(), 0, 1, vertexBuffers, offsets);
 
         VkViewport viewport{};
         viewport.x        = 0.0f;
@@ -280,7 +252,7 @@ void VulkanApp::recordCommandBuffers()
 
         vkCmdSetScissor(mCommandBuffers[i]->getCommandBuffer(), 0, 1, &scissor);
 
-        mCommandBuffers[i]->draw(vertices.size());
+        mModel->draw(mCommandBuffers[i]);
 
         mCommandBuffers[i]->endRenderPass();
         mCommandBuffers[i]->endCommandBuffer();
@@ -294,7 +266,7 @@ void VulkanApp::drawFrame()
 
     // 2. 由Vulkan驱动决定下一张被渲染的交换链图像
     uint32_t imageIndex = 0;
-    vkAcquireNextImageKHR(
+    VkResult result = vkAcquireNextImageKHR(
         mDevice->getDevice(), 
         mSwapchain->getSwapChain(), 
         UINT64_MAX, 
@@ -302,6 +274,12 @@ void VulkanApp::drawFrame()
         VK_NULL_HANDLE, 
         &imageIndex
     );
+    if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR || mFramebufferResized)
+    {
+        recreateSwapchain();
+        mFramebufferResized = false;
+        return;
+    }
 
     // 3. 手动重置Fence
     mFences[mCurrentFrame]->resetFence();
@@ -337,7 +315,13 @@ void VulkanApp::drawFrame()
     presentInfo.pSwapchains        = swapchains;
     presentInfo.pImageIndices      = &imageIndex;
 
-    vkQueuePresentKHR(mDevice->getPresentQueue(), &presentInfo);
+    result = vkQueuePresentKHR(mDevice->getPresentQueue(), &presentInfo);
+    if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR || mFramebufferResized)
+    {
+        recreateSwapchain();
+        mFramebufferResized = false;
+        return;
+    }
 
     // 6. 下一帧使用的同步资源下标
     mCurrentFrame = (mCurrentFrame + 1) % mSwapchain->getImageCount();
@@ -357,7 +341,8 @@ void VulkanApp::updateUBO(float dt)
     mRotation += dt * glm::radians(45.0f);
 
     ObjectUBO obj;
-    obj.model = glm::rotate(glm::mat4(1.0f), mRotation, glm::vec3(0.0f, 0.0f, 1.0f));
+    obj.model = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, -1.0f, 0.0f));
+    obj.model = glm::rotate(obj.model, mRotation, glm::vec3(0.0f, 1.0f, 0.0f));
 
     CameraUBO cam;
     cam.view = glm::lookAt(
@@ -366,8 +351,10 @@ void VulkanApp::updateUBO(float dt)
         glm::vec3(0.0f, 1.0f, 0.0f)
     );
 
-    float aspect = static_cast<float>(mWidth) / mHeight;
-    cam.proj     = glm::perspective(glm::radians(45.0f), aspect, 0.1f, 100.0f);
+    auto extent = mSwapchain->getSwapChainExtent();
+
+    float aspect = static_cast<float>(extent.width) / extent.height;
+    cam.proj     = glm::perspective(glm::radians(90.0f), aspect, 0.1f, 100.0f);
 
     mDescriptorManager->updateObjectUBO(obj, mCurrentFrame);
     mDescriptorManager->updateCameraUBO(cam, mCurrentFrame);
