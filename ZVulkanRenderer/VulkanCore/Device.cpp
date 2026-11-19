@@ -19,6 +19,29 @@ Device::~Device()
     vkDestroyDevice(mDevice, nullptr);
 }
 
+VkSampleCountFlagBits Device::getMaxUsableSampleCount() const
+{
+    VkPhysicalDeviceProperties props{};
+    vkGetPhysicalDeviceProperties(mPhysicalDevice, &props);
+
+    // 只有颜色和深度都支持的采样数才可用
+    VkSampleCountFlags counts = props.limits.framebufferColorSampleCounts & props.limits.framebufferDepthSampleCounts;
+
+    if (counts & VK_SAMPLE_COUNT_64_BIT)
+        return VK_SAMPLE_COUNT_64_BIT;
+    if (counts & VK_SAMPLE_COUNT_32_BIT)
+        return VK_SAMPLE_COUNT_32_BIT;
+    if (counts & VK_SAMPLE_COUNT_16_BIT)
+        return VK_SAMPLE_COUNT_16_BIT;
+    if (counts & VK_SAMPLE_COUNT_8_BIT)
+        return VK_SAMPLE_COUNT_8_BIT;
+    if (counts & VK_SAMPLE_COUNT_4_BIT)
+        return VK_SAMPLE_COUNT_4_BIT;
+    if (counts & VK_SAMPLE_COUNT_2_BIT)
+        return VK_SAMPLE_COUNT_2_BIT;
+    return VK_SAMPLE_COUNT_1_BIT;
+}
+
 void Device::choosePhysicalDevice()
 {
     uint32_t deviceCount = 0;
@@ -146,8 +169,13 @@ void Device::createLogicalDevice()
     VkPhysicalDeviceFeatures features{};
     features.samplerAnisotropy = VK_TRUE;
 
+    VkPhysicalDeviceVulkan11Features features11{};
+    features11.sType                = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_1_FEATURES;
+    features11.shaderDrawParameters = VK_TRUE;
+
     VkDeviceCreateInfo deviceCreateInfo{};
     deviceCreateInfo.sType                   = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
+    deviceCreateInfo.pNext                   = &features11;
     deviceCreateInfo.queueCreateInfoCount    = static_cast<uint32_t>(queueCreateInfos.size());
     deviceCreateInfo.pQueueCreateInfos       = queueCreateInfos.data();
     deviceCreateInfo.pEnabledFeatures        = &features;

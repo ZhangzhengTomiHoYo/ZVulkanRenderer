@@ -22,7 +22,9 @@ class Device
     VkQueue getPresentQueue() const { return mPresentQueue; }
     std::optional<uint32_t> getGraphicQueueFamily() const { return mGraphicQueueFamily; }
     std::optional<uint32_t> getPresentQueueFamily() const { return mPresentQueueFamily; }
-
+    
+    // 颜色和深度帧缓冲区均支持的最高 MSAA 采样数
+    VkSampleCountFlagBits getMaxUsableSampleCount() const;
   private:
     void choosePhysicalDevice();
 
