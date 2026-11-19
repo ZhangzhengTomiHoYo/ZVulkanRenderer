@@ -110,4 +110,74 @@ std::shared_ptr<vulkancore::RenderPass> RenderPassFactory::CreateRenderPassWithD
 
     return renderPass;
 }
+std::shared_ptr<vulkancore::RenderPass> RenderPassFactory::CreateRenderPassWithMSAA(const std::shared_ptr<vulkancore::Device> &device, VkFormat colorFormat, VkSampleCountFlagBits msaaSamples, VkFormat depthFormat, VkImageLayout imageFinalLayout)
+{
+    auto renderPass = std::make_shared<vulkancore::RenderPass>(device);
+
+    VkAttachmentDescription msaaColorAttachment{};
+    msaaColorAttachment.format = colorFormat;
+    msaaColorAttachment.samples = msaaSamples;
+    msaaColorAttachment.loadOp  = VK_ATTACHMENT_LOAD_OP_CLEAR;
+    msaaColorAttachment.storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;  // 结果已经写入解析附件 此附件数据不需要保留
+    msaaColorAttachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+    msaaColorAttachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+    msaaColorAttachment.initialLayout  = VK_IMAGE_LAYOUT_UNDEFINED;
+    msaaColorAttachment.finalLayout    = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+    
+    renderPass->addAttachmentDescription(msaaColorAttachment);
+
+    VkAttachmentReference msaaColorRef{};
+    msaaColorRef.attachment = 0;
+    msaaColorRef.layout     = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+
+    VkAttachmentDescription resolveAttachment{};
+    resolveAttachment.format = colorFormat;
+    resolveAttachment.samples = VK_SAMPLE_COUNT_1_BIT;
+    resolveAttachment.loadOp  = VK_ATTACHMENT_LOAD_OP_CLEAR;
+    resolveAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+    resolveAttachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+    resolveAttachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+    resolveAttachment.initialLayout  = VK_IMAGE_LAYOUT_UNDEFINED;
+    resolveAttachment.finalLayout    = imageFinalLayout;
+
+    renderPass->addAttachmentDescription(resolveAttachment);
+
+    VkAttachmentReference resolveRef{};
+    resolveRef.attachment = 1;
+    resolveRef.layout     = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+
+    VkAttachmentDescription msaaDepthAttachment{};
+    msaaDepthAttachment.format     = depthFormat;
+    msaaDepthAttachment.samples    = msaaSamples;
+    msaaDepthAttachment.loadOp     = VK_ATTACHMENT_LOAD_OP_CLEAR;
+    msaaDepthAttachment.storeOp    = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+    msaaDepthAttachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+    msaaDepthAttachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+    msaaDepthAttachment.initialLayout  = VK_IMAGE_LAYOUT_UNDEFINED;
+    msaaDepthAttachment.finalLayout    = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+    renderPass->addAttachmentDescription(msaaDepthAttachment);
+
+    VkAttachmentReference msaaDepthRef{};
+    msaaDepthRef.attachment = 2;
+    msaaDepthRef.layout     = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+
+    vulkancore::SubPass subPass{};
+    subPass.addColorAttachmentReference(msaaColorRef);
+    subPass.setResolveAttachmentReference(resolveRef);
+    subPass.setDepthStencilAttachmentReference(msaaDepthRef);
+
+    renderPass->addSubpass(subPass);
+
+    VkSubpassDependency dependency{};
+    dependency.srcSubpass    = VK_SUBPASS_EXTERNAL;
+    dependency.dstSubpass    = 0;
+    dependency.srcStageMask  = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
+    dependency.srcAccessMask = 0;
+    dependency.dstStageMask  = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+    dependency.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_COLOR_ATTACHMENT_READ_BIT;
+    renderPass->addDependency(dependency);
+
+    renderPass->buildRenderPass();
+    return renderPass;
+}
 } // namespace VKFW::factories
