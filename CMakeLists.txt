@@ -48,7 +48,7 @@ function(compile_slang SLANG_FILE ENTRY STAGE OUTPUT_SPV)
 	)
 endfunction()
 
-file(GLOB SLANG_FILES ${SHADER_SRC_DIR}/*.slang)
+file(GLOB SLANG_FILES CONFIGURE_DEPENDS "${SHADER_SRC_DIR}/*.slang")
 
 set(SPV_FILES)
 

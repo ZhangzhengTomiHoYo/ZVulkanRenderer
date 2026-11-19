@@ -3,5 +3,5 @@ AllowShortFunctionsOnASingleLine: Inline
 ColumnLimit: 10000
 AlignConsecutiveDeclarations:
   Enabled: true
-  AlignFunctionDeclarations: false
+  AlignFunctionDeclarations: true
 AlignConsecutiveAssignments: true
