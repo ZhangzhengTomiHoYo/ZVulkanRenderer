@@ -20,8 +20,8 @@ class DescriptorSetLayout
     std::vector<std::shared_ptr<DescriptorParameter>> getBindingParameters() const { return mBindingParameters; }
 
   private:
-    VkDescriptorSetLayout                          mLayout = VK_NULL_HANDLE;
-    std::shared_ptr<Device>                        mDevice = nullptr;
+    std::shared_ptr<Device>                           mDevice = nullptr;
+    VkDescriptorSetLayout                             mLayout = VK_NULL_HANDLE;
     std::vector<std::shared_ptr<DescriptorParameter>> mBindingParameters;
 };
 
