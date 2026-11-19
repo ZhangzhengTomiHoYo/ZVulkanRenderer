@@ -23,6 +23,7 @@ class DescriptorManager
     void attachCameraUBO(); // binding 0：观察矩阵和投影矩阵
     void attachObjectUBO(); // binding 1：模型矩阵
     void attachTexture(const std::shared_ptr<vulkancore::Texture> &texture);
+    void attachPerFrameTextures(const std::vector<std::shared_ptr<vulkancore::Texture>> &perFrameTextures);
     // TODO：绑定纹理和采样器
 
     void build();
@@ -34,13 +35,17 @@ class DescriptorManager
     VkDescriptorSet getDescriptorSet(int frameIndex) const { return mDescriptorSet->getDescriptorSet(frameIndex); }
 
   private:
-    std::shared_ptr<vulkancore::Device>                        mDevice     = nullptr;
-    int                                                        mFrameCount = 1;
-    std::vector<std::shared_ptr<vulkancore::DescriptorParameter>> mParams;
-
+    std::shared_ptr<vulkancore::Device> mDevice     = nullptr;
+    
     std::shared_ptr<vulkancore::DescriptorSetLayout> mLayout        = nullptr;
     std::shared_ptr<vulkancore::DescriptorPool>      mPool          = nullptr;
     std::shared_ptr<vulkancore::DescriptorSet>       mDescriptorSet = nullptr;
+
+    std::vector<std::shared_ptr<vulkancore::DescriptorParameter>> mParams;
+    int mCameraParamIndex = -1;  // 用于访问 mParams 找哪种资源->相机UBO
+    int mObjectParamIndex = -1;  // 找->物体UBO
+
+    int mFrameCount = 1;         // UBO的第几份Buffer
 };
 
 } // namespace VKFW::renderer

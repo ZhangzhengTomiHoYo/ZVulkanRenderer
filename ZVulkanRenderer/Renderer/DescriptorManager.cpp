@@ -11,6 +11,8 @@ void DescriptorManager::init(const std::shared_ptr<vulkancore::Device> &device, 
 
 void DescriptorManager::attachCameraUBO()
 {
+    mCameraParamIndex = static_cast<int>(mParams.size());
+
     auto parameter             = std::make_shared<vulkancore::DescriptorParameter>();
     parameter->mBinding        = static_cast<uint32_t>(mParams.size());
     parameter->mDescriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
@@ -26,6 +28,8 @@ void DescriptorManager::attachCameraUBO()
 
 void DescriptorManager::attachObjectUBO()
 {
+    mObjectParamIndex = static_cast<int>(mParams.size());
+
     auto parameter             = std::make_shared<vulkancore::DescriptorParameter>();
     parameter->mBinding        = static_cast<uint32_t>(mParams.size());
     parameter->mDescriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
@@ -37,7 +41,8 @@ void DescriptorManager::attachObjectUBO()
         parameter->mBuffers.push_back(vulkancore::DataBuffer::createUniformBuffer(mDevice, parameter->mSize));
 
     mParams.push_back(parameter);
-}
+}
+
 void DescriptorManager::attachTexture(const std::shared_ptr<vulkancore::Texture> &texture)
 {
     auto parameter = std::make_shared<vulkancore::DescriptorParameter>();
@@ -49,6 +54,24 @@ void DescriptorManager::attachTexture(const std::shared_ptr<vulkancore::Texture>
 
     for (int i = 0; i < mFrameCount; i++)
         parameter->mTextures.push_back(texture);
+
+    mParams.push_back(parameter);
+}
+
+void DescriptorManager::attachPerFrameTextures(const std::vector<std::shared_ptr<vulkancore::Texture>> &perFrameTextures) 
+{
+    if (static_cast<int>(perFrameTextures.size()) != mFrameCount)
+        throw std::runtime_error("attachPerFrameTextures: texture count must equal frame count");
+
+    auto parameter = std::make_shared<vulkancore::DescriptorParameter>();
+
+    parameter->mBinding        = static_cast<uint32_t>(mParams.size());
+    parameter->mDescriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+    parameter->mCount          = 1;
+    parameter->mStageFlags     = VK_SHADER_STAGE_FRAGMENT_BIT;
+
+    for (int i = 0; i < mFrameCount; i++)
+        parameter->mTextures.push_back(perFrameTextures[i]);
 
     mParams.push_back(parameter);
 }
@@ -66,12 +89,16 @@ void DescriptorManager::build()
 
 void DescriptorManager::updateCameraUBO(const CameraUBO &data, int frameIndex)
 {
-    mParams[0]->mBuffers[frameIndex]->updateBufferByMap(&data, sizeof(CameraUBO));
+    if (mCameraParamIndex < 0)
+        throw std::runtime_error("DescriptorManager: no camera UBO attached");
+    mParams[mCameraParamIndex]->mBuffers[frameIndex]->updateBufferByMap(&data, sizeof(CameraUBO));
 }
 
 void DescriptorManager::updateObjectUBO(const ObjectUBO &data, int frameIndex)
 {
-    mParams[1]->mBuffers[frameIndex]->updateBufferByMap(&data, sizeof(ObjectUBO));
+    if (mObjectParamIndex < 0)
+        throw std::runtime_error("DescriptorManager: no object UBO attached");
+    mParams[mObjectParamIndex]->mBuffers[frameIndex]->updateBufferByMap(&data, sizeof(ObjectUBO));
 }
 
 } // namespace VKFW::renderer
