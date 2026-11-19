@@ -15,8 +15,11 @@
 #include "VulkanCore/Texture.h"
 
 #include "Factories/RenderPassFactory.h"
+#include "Factories/PipelineFactory.h"
+
 #include "Renderer/DescriptorManager.h"
 #include "Renderer/Model.h"
+#include "Renderer/Scene.h"
 
 namespace VKFW
 {
@@ -34,21 +37,22 @@ class VulkanApp
     std::shared_ptr<vulkancore::CommandPool>   mCommandPool  = nullptr;
     std::shared_ptr<vulkancore::SwapChain>     mSwapchain    = nullptr;
     std::shared_ptr<vulkancore::RenderPass>    mRenderPass   = nullptr;
-    std::shared_ptr<vulkancore::Pipeline>      mPipeline     = nullptr;
-    std::shared_ptr<vulkancore::Texture>       mTexture      = nullptr;
+    //std::shared_ptr<vulkancore::Pipeline>      mPipeline     = nullptr;
+    //std::shared_ptr<vulkancore::Texture>       mTexture      = nullptr;
 
-    std::shared_ptr<renderer::DescriptorManager> mDescriptorManager = nullptr;
+    //std::shared_ptr<renderer::DescriptorManager> mDescriptorManager = nullptr;
+    //std::shared_ptr<renderer::Model>             mModel             = nullptr;
+    std::shared_ptr<renderer::Scene>             mScene             = nullptr;
+    std::shared_ptr<renderer::OffscreenRenderTarget> mOffscreenRT = nullptr;
 
-    std::shared_ptr<renderer::Model> mModel = nullptr;
-
-    std::vector<std::shared_ptr<vulkancore::CommandBuffer>> mCommandBuffers;
+    //std::vector<std::shared_ptr<vulkancore::CommandBuffer>> mCommandBuffers;
 
     std::vector<std::shared_ptr<vulkancore::Semaphore>> mImageAvailableSemaphores;
     std::vector<std::shared_ptr<vulkancore::Semaphore>> mRenderFinishedSemaphores;
     std::vector<std::shared_ptr<vulkancore::Fence>>     mFences;
     uint32_t                                            mCurrentFrame = 0;
 
-    float mRotation = 0.0f;
+    //float mRotation = 0.0f;
 
     int  mWidth;
     int  mHeight;
@@ -56,18 +60,21 @@ class VulkanApp
 
     void initWindow();
     void initVulkan();
+    void initScene();
     void mainLoop();
     void cleanUp();
+
     void onResize(int w, int h);
+    static renderer::CameraMove toCameraMove(platform::CameraMove move);
 
   private:
     void  recreateSwapchain();
     void  createSyncObjectes();
-    void  recordCommandBuffers();
+    //void  recordCommandBuffers();
     void  drawFrame();
     float getFrameTime();
-    void  updateUBO(float dt);
-
-    std::shared_ptr<vulkancore::Pipeline> createPipeline();
+    //void  updateUBO(float dt);
+    void onKeyMove(platform::CameraMove move);
+    void onMouseMove(double xpos, double ypos);
 };
 } // namespace VKFW
