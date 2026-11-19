@@ -1,5 +1,6 @@
 #pragma once
 #include "../Common.h"
+#include "InputTypes.h"
 
 namespace VKFW::platform
 {
@@ -16,11 +17,21 @@ class Window
     void setOnResize(std::function<void(int, int)> fn) { mOnResize = std::move(fn); }
     GLFWwindow *getWindow() { return mWindow; }
 
+    void processEvents();
+    void setOnKeyMove(std::function<void(CameraMove)> fn) { mOnKeyMove = std::move(fn); }
+
+    void setOnMouseMove(std::function<void(double, double)> fn) { mOnMouseMove = std::move(fn); }
+    bool isLeftMousePressed() const;
+
   private:
     int mWidth;
     int mHeight;
 
     std::function<void(int, int)> mOnResize;
+    std::function<void(CameraMove)> mOnKeyMove;
+    std::function<void(double, double)> mOnMouseMove;
+
+    static void cursor_pos_callback(GLFWwindow *window, double xpos, double ypos);
 
     GLFWwindow *mWindow;
 
