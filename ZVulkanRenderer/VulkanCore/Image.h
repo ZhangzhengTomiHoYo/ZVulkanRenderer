@@ -24,6 +24,7 @@ struct ImageDescription
     VkSampleCountFlagBits samples     = VK_SAMPLE_COUNT_1_BIT;
     VkMemoryPropertyFlags properties  = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
     VkImageAspectFlags    aspectFlags = VK_IMAGE_ASPECT_COLOR_BIT;
+    bool                  isCubeMap   = false; // 立方体贴图：6 个图层、立方体兼容标志、立方体图像视图
 };
 
 class Image
@@ -32,10 +33,21 @@ class Image
     // 从文件读取普通图片，并完成图像上传
     static std::shared_ptr<Image> createImageFromFile(const std::shared_ptr<Device> &device, const std::shared_ptr<CommandPool> &commandPool, const std::string &filePath, VkFormat format = VK_FORMAT_R8G8B8A8_SRGB, bool flipVertically = false);
 
+    // 创建HDR图片
+    static std::shared_ptr<Image> createHDRImageFromFile(const std::shared_ptr<Device> &device, const std::shared_ptr<CommandPool> &commandPool, const std::string &filePath);
+
     // TODO：创建深度模板图像
-    static std::shared_ptr<Image> createDepthStencil(const std::shared_ptr<Device>& device, uint32_t width, uint32_t height, VkFormat depthFormat = VK_FORMAT_UNDEFINED);
+    static std::shared_ptr<Image> createDepthStencil(const std::shared_ptr<Device>& device, uint32_t width, uint32_t height, VkFormat depthFormat = VK_FORMAT_UNDEFINED, VkSampleCountFlagBits samples = VK_SAMPLE_COUNT_1_BIT);
     static VkFormat findDepthFormat(const std::shared_ptr<Device> &device, VkImageTiling tiling = VK_IMAGE_TILING_OPTIMAL, VkFormatFeatureFlags features = VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT);
 
+    // 创建 MSAA 颜色图像，绘制后需要解析到单采样图像
+    static std::shared_ptr<Image> createMultiSampleImage(const std::shared_ptr<Device> &device, uint32_t width, uint32_t height, VkFormat format);
+
+    // 创建单采样离屏颜色图像，保存绘制或解析结果，供后续采样
+    static std::shared_ptr<Image> createRenderTargetImage(const std::shared_ptr<Device> &device, uint32_t width, uint32_t height, VkFormat format);
+
+    // 创建包含六个面的立方体贴图
+    static std::shared_ptr<Image> createCubeMapImage(const std::shared_ptr<Device> &device, uint32_t width, uint32_t height, VkFormat format, uint32_t mipLevels = 1);
 
     Image(const std::shared_ptr<Device> &device, const ImageDescription &description);
     ~Image();
@@ -44,15 +56,15 @@ class Image
 
     void transitionLayout(VkImageLayout newLayout, VkPipelineStageFlags srcStage, VkPipelineStageFlags dstStage, const std::shared_ptr<CommandPool> &commandPool);
 
-    VkImageView getImageView() const { return mImageView; }
-    VkImage getImage() const { return mImage; }
-    VkFormat getFormat() const { return mDescription.format; }
-    VkImageLayout getLayout() const { return mCurrentLayout; }
+    VkImageView             getImageView() const { return mImageView; }
+    VkImage                 getImage() const { return mImage; }
+    VkFormat                getFormat() const { return mDescription.format; }
+    VkImageLayout           getLayout() const { return mCurrentLayout; }
     const ImageDescription &getDesc() const { return mDescription; }
 
   private:
-    void createResources();
-    void createImageView();
+    void     createResources();
+    void     createImageView();
     uint32_t findMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties);
 
     VkAccessFlags getSrcAccessMask(VkImageLayout layout);

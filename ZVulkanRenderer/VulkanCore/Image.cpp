@@ -41,48 +41,114 @@ std::shared_ptr<Image> Image::createImageFromFile(const std::shared_ptr<Device> 
     return image;
 }
 
-std::shared_ptr<Image> Image::createDepthStencil(const std::shared_ptr<Device> &device, uint32_t width, uint32_t height, VkFormat depthFormat)
+std::shared_ptr<Image> Image::createHDRImageFromFile(const std::shared_ptr<Device> &device, const std::shared_ptr<CommandPool> &commandPool, const std::string &filePath)
+{
+    int width = 0, height = 0, channels = 0;
+    stbi_set_flip_vertically_on_load(0);
+
+    float *pixels = stbi_loadf(filePath.c_str(), &width, &height, &channels, STBI_rgb_alpha);
+
+    if (!pixels || width <= 0 || height <= 0)
+        throw std::runtime_error("failed to load HDR image: " + filePath);
+
+    VkDeviceSize size = static_cast<VkDeviceSize>(width) * height * 4 * sizeof(float);
+
+    ImageDescription description{};
+    description.width       = static_cast<uint32_t>(width);
+    description.height      = static_cast<uint32_t>(height);
+    description.format      = VK_FORMAT_R32G32B32A32_SFLOAT;
+    description.usage       = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
+    description.aspectFlags = VK_IMAGE_ASPECT_COLOR_BIT;
+
+    auto image = std::make_shared<Image>(device, description);
+
+    image->transitionLayout(VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, commandPool);
+
+    image->fillImageData(static_cast<size_t>(size), pixels, commandPool);
+
+    image->transitionLayout(VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, commandPool);
+
+    stbi_image_free(pixels);
+    return image;
+}
+
+std::shared_ptr<Image> Image::createDepthStencil(const std::shared_ptr<Device> &device, uint32_t width, uint32_t height, VkFormat depthFormat, VkSampleCountFlagBits samples)
 {
     if (depthFormat == VK_FORMAT_UNDEFINED)
     {
         depthFormat = findDepthFormat(device);
     }
 
-    ImageDescription desc{};
-    desc.width       = width;
-    desc.height      = height;
-    desc.format      = depthFormat;
-    desc.usage       = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
-    desc.aspectFlags = VK_IMAGE_ASPECT_DEPTH_BIT;
+    ImageDescription description{};
+    description.width       = width;
+    description.height      = height;
+    description.format      = depthFormat;
+    description.usage       = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
+    description.aspectFlags = VK_IMAGE_ASPECT_DEPTH_BIT;
+    description.samples     = samples;
 
     if (depthFormat == VK_FORMAT_D32_SFLOAT_S8_UINT || depthFormat == VK_FORMAT_D24_UNORM_S8_UINT)
-        desc.aspectFlags |= VK_IMAGE_ASPECT_STENCIL_BIT;
+        description.aspectFlags |= VK_IMAGE_ASPECT_STENCIL_BIT;
 
-    return std::make_shared<Image>(device, desc);
+    return std::make_shared<Image>(device, description);
 }
 
 VkFormat Image::findDepthFormat(const std::shared_ptr<Device> &device, VkImageTiling tiling, VkFormatFeatureFlags features)
 {
-    std::vector<VkFormat> depthFormats = {
-        VK_FORMAT_D32_SFLOAT,
-        VK_FORMAT_D32_SFLOAT_S8_UINT,
-        VK_FORMAT_D24_UNORM_S8_UINT
-    };
+    std::vector<VkFormat> depthFormats = {VK_FORMAT_D32_SFLOAT, VK_FORMAT_D32_SFLOAT_S8_UINT, VK_FORMAT_D24_UNORM_S8_UINT};
 
-    for (const auto& format : depthFormats)
+    for (const auto &format : depthFormats)
     {
-        VkFormatProperties props;
-        vkGetPhysicalDeviceFormatProperties(device->getPhysicalDevice(), format, &props);
-        if (tiling == VK_IMAGE_TILING_LINEAR && (props.linearTilingFeatures & features) == features)
+        VkFormatProperties formatProperties{};
+        vkGetPhysicalDeviceFormatProperties(device->getPhysicalDevice(), format, &formatProperties);
+        if (tiling == VK_IMAGE_TILING_LINEAR && (formatProperties.linearTilingFeatures & features) == features)
         {
             return format;
         }
-        else if (tiling == VK_IMAGE_TILING_OPTIMAL && (props.optimalTilingFeatures & features) == features)
+        else if (tiling == VK_IMAGE_TILING_OPTIMAL && (formatProperties.optimalTilingFeatures & features) == features)
         {
             return format;
         }
     }
     throw std::runtime_error("failed to find supported depth format");
+}
+
+std::shared_ptr<Image> Image::createMultiSampleImage(const std::shared_ptr<Device> &device, uint32_t width, uint32_t height, VkFormat format)
+{
+    ImageDescription description{};
+    description.width       = width;
+    description.height      = height;
+    description.format      = format;
+    description.usage       = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
+    description.aspectFlags = VK_IMAGE_ASPECT_COLOR_BIT;
+    description.samples     = device->getMaxUsableSampleCount();
+    return std::make_shared<Image>(device, description);
+}
+
+std::shared_ptr<Image> Image::createRenderTargetImage(const std::shared_ptr<Device> &device, uint32_t width, uint32_t height, VkFormat format)
+{
+    ImageDescription description{};
+    description.width       = width;
+    description.height      = height;
+    description.format      = format;
+    description.usage       = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
+    description.aspectFlags = VK_IMAGE_ASPECT_COLOR_BIT;
+    return std::make_shared<Image>(device, description);
+}
+
+std::shared_ptr<Image> Image::createCubeMapImage(const std::shared_ptr<Device> &device, uint32_t width, uint32_t height, VkFormat format, uint32_t mipLevels)
+{
+    ImageDescription description{};
+    description.width       = width;
+    description.height      = height;
+    description.format      = format;
+    description.mipLevels   = mipLevels; // 镜面反射预过滤使用多个 mip 层级
+    description.arrayLayers = 6;         // 六个图层，分别存放立方体的六个面
+    description.isCubeMap   = true;
+    description.usage       = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
+    description.aspectFlags = VK_IMAGE_ASPECT_COLOR_BIT;
+
+    return std::make_shared<Image>(device, description);
 }
 
 Image::Image(const std::shared_ptr<Device> &device, const ImageDescription &description) : mDevice(device), mDescription(description)
@@ -117,8 +183,11 @@ void Image::createResources()
     imageCreateInfo.usage         = mDescription.usage;
     imageCreateInfo.samples       = mDescription.samples;
     imageCreateInfo.sharingMode   = VK_SHARING_MODE_EXCLUSIVE;
+    if (mDescription.isCubeMap)
+        imageCreateInfo.flags |= VK_IMAGE_CREATE_CUBE_COMPATIBLE_BIT;
 
-    if (vkCreateImage(mDevice->getDevice(), &imageCreateInfo, nullptr, &mImage) != VK_SUCCESS)
+    VkResult result = vkCreateImage(mDevice->getDevice(), &imageCreateInfo, nullptr, &mImage);
+    if (result != VK_SUCCESS)
         throw std::runtime_error("failed to create image");
 
     VkMemoryRequirements memoryRequirements{};
@@ -129,7 +198,8 @@ void Image::createResources()
     allocateInfo.allocationSize  = memoryRequirements.size;
     allocateInfo.memoryTypeIndex = findMemoryType(memoryRequirements.memoryTypeBits, mDescription.properties);
 
-    if (vkAllocateMemory(mDevice->getDevice(), &allocateInfo, nullptr, &mMemory) != VK_SUCCESS)
+    result = vkAllocateMemory(mDevice->getDevice(), &allocateInfo, nullptr, &mMemory);
+    if (result != VK_SUCCESS)
         throw std::runtime_error("failed to allocate image memory");
 
     vkBindImageMemory(mDevice->getDevice(), mImage, mMemory, 0);
@@ -140,7 +210,7 @@ void Image::createImageView()
     VkImageViewCreateInfo imageViewCreateInfo{};
     imageViewCreateInfo.sType    = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
     imageViewCreateInfo.image    = mImage;
-    imageViewCreateInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
+    imageViewCreateInfo.viewType = mDescription.isCubeMap ? VK_IMAGE_VIEW_TYPE_CUBE : VK_IMAGE_VIEW_TYPE_2D;
     // TODO：立方体贴图使用 VK_IMAGE_VIEW_TYPE_CUBE
     imageViewCreateInfo.format                          = mDescription.format;
     imageViewCreateInfo.components                      = {VK_COMPONENT_SWIZZLE_IDENTITY, VK_COMPONENT_SWIZZLE_IDENTITY, VK_COMPONENT_SWIZZLE_IDENTITY, VK_COMPONENT_SWIZZLE_IDENTITY};
@@ -151,7 +221,8 @@ void Image::createImageView()
     imageViewCreateInfo.subresourceRange.layerCount     = mDescription.arrayLayers;
     // TODO：立方体贴图使用 6 个图层
 
-    if (vkCreateImageView(mDevice->getDevice(), &imageViewCreateInfo, nullptr, &mImageView) != VK_SUCCESS)
+    VkResult result = vkCreateImageView(mDevice->getDevice(), &imageViewCreateInfo, nullptr, &mImageView);
+    if (result != VK_SUCCESS)
         throw std::runtime_error("failed to create image view");
 }
 
