@@ -65,9 +65,17 @@ void CommandBuffer::drawIndexed(uint32_t indexCount, uint32_t instanceCount, uin
     vkCmdDrawIndexed(mCommandBuffer, indexCount, instanceCount, firstIndex, vertexOffset, firstInstance);
 }
 
-void CommandBuffer::bindDescriptorSets(const std::shared_ptr<Pipeline> &pipeline, VkDescriptorSet descriptorSet) 
+// 绑定描述符集
+void CommandBuffer::bindDescriptorSets(const std::shared_ptr<Pipeline> &pipeline, VkDescriptorSet descriptorSet, uint32_t firstSet) 
 {
-    vkCmdBindDescriptorSets(mCommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline->getPipelineLayout(), 0, 1, &descriptorSet, 0, nullptr);
+    vkCmdBindDescriptorSets(
+        mCommandBuffer, 
+        VK_PIPELINE_BIND_POINT_GRAPHICS, 
+        pipeline->getPipelineLayout(), 
+        firstSet,        // 从 firstSet 开始
+        1,               // 连续绑定 1 个描述符集
+        &descriptorSet,  // 绑定 >= 2 个时 此处传数组名字即可
+        0, nullptr);
 }
 
 void CommandBuffer::bindVertexBuffer(const std::vector<VkBuffer> &buffers, uint32_t binding, std::vector<VkDeviceSize> offsets) 

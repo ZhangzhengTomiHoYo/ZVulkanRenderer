@@ -29,7 +29,7 @@ class CommandBuffer
     void drawIndexed(uint32_t indexCount, uint32_t instanceCount, uint32_t firstIndex, int32_t vertexOffset, uint32_t firstInstance);
 
     void bindGraphicPipeline(const std::shared_ptr<Pipeline> &pipeline);
-    void bindDescriptorSets(const std::shared_ptr<Pipeline> &pipeline, VkDescriptorSet descriptorSet); 
+    void bindDescriptorSets(const std::shared_ptr<Pipeline> &pipeline, VkDescriptorSet descriptorSet, uint32_t firstSet); 
     
     void bindVertexBuffer(const std::vector<VkBuffer> &buffers, uint32_t binding = 0, std::vector<VkDeviceSize> offsets = {0});
     void bindIndexBuffer(VkBuffer buffer, uint32_t offset = 0, VkIndexType indexType = VK_INDEX_TYPE_UINT32);
