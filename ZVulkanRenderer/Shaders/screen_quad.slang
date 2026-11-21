@@ -21,5 +21,8 @@ VertexOutput vertMain(uint vertexID: SV_VertexID) {
 
 [shader("fragment")]
 float4 fragMain(VertexOutput input) : SV_Target {
-    return sceneTexture.Sample(input.uv);
+    float3 hdr = sceneTexture.Sample(input.uv).rgb;
+    float3 mappedColor = hdr / (1.0 + hdr);
+    float3 finalColor = pow(mappedColor, 1.0 / 2.2);
+    return float4(finalColor, 1.0);
 }
