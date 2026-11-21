@@ -109,6 +109,26 @@ void CommandBuffer::copyBufferToImage(VkBuffer src, VkImage dst, VkImageLayout d
     vkCmdCopyBufferToImage(mCommandBuffer, src, dst, dstLayout, 1, &region);
 }
 
+void CommandBuffer::copyImageToCubeFace(VkImage source, VkImage destination, uint32_t width, uint32_t height, uint32_t faceIndex, uint32_t mipLevel)
+{
+    VkImageCopy region{};
+    region.srcSubresource.aspectMask     = VK_IMAGE_ASPECT_COLOR_BIT;
+    region.srcSubresource.mipLevel       = 0;
+    region.srcSubresource.baseArrayLayer = 0;
+    region.srcSubresource.layerCount     = 1;
+    region.srcOffset                     = {0, 0, 0};
+
+    region.dstSubresource.aspectMask     = VK_IMAGE_ASPECT_COLOR_BIT;
+    region.dstSubresource.mipLevel       = mipLevel;
+    region.dstSubresource.baseArrayLayer = faceIndex;
+    region.dstSubresource.layerCount     = 1;
+    region.dstOffset                     = {0, 0, 0};
+
+    region.extent = {width, height, 1};
+
+    vkCmdCopyImage(mCommandBuffer, source, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, destination, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &region);
+}
+
 void CommandBuffer::submitCommandBuffer(VkQueue queue)
 {
     VkSubmitInfo submitInfo{};

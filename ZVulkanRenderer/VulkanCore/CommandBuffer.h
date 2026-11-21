@@ -38,7 +38,7 @@ class CommandBuffer
     void copyBufferToBuffer(const VkBuffer &source, const VkBuffer &destination, uint32_t count, const std::vector<VkBufferCopy> &regions);
     void copyBufferToImage(VkBuffer src, VkImage dst, VkImageLayout dstLayout, uint32_t width, uint32_t height);
     // TODO L14: void transferImageLayout(...)
-
+    void copyImageToCubeFace(VkImage source, VkImage destination, uint32_t width, uint32_t height, uint32_t faceIndex, uint32_t mipLevel);
   private:
     VkCommandBuffer              mCommandBuffer = VK_NULL_HANDLE;
     std::shared_ptr<CommandPool> mCommandPool   = nullptr;
