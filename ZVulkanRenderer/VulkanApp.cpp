@@ -42,7 +42,7 @@ void VulkanApp::initVulkan()
     mOffscreenRT = std::make_shared<renderer::OffscreenRenderTarget>(
         mDevice, mCommandPool, 
         extent.width, extent.height, 
-        mSwapchain->getImageCount(), mSwapchain->getSwapChainImageFormat(), 
+        mSwapchain->getImageCount(), VK_FORMAT_R32G32B32A32_SFLOAT, 
         vulkancore::Image::findDepthFormat(mDevice)
     );
 }
@@ -177,7 +177,7 @@ void VulkanApp::drawFrame()
         return;
     }
     if (result != VK_SUCCESS)
-        throw std::runtime_error("Failed to acquire swapchain image");
+        throw std::runtime_error("vkAcquireNextImageKHR failed: VkResult=" + std::to_string(result));
 
     // 3. 手动重置Fence
     mFences[mCurrentFrame]->resetFence();
@@ -200,7 +200,9 @@ void VulkanApp::drawFrame()
     submitInfo.pCommandBuffers      = &commandBuffer;
     submitInfo.pWaitDstStageMask    = waitStages;
 
-    vkQueueSubmit(mDevice->getGraphicQueue(), 1, &submitInfo, mFences[mCurrentFrame]->getFence());
+    result = vkQueueSubmit(mDevice->getGraphicQueue(), 1, &submitInfo, mFences[mCurrentFrame]->getFence());
+    if (result != VK_SUCCESS)
+        throw std::runtime_error("vkQueueSubmit failed: VkResult=" + std::to_string(result));
 
     VkSwapchainKHR swapchains[] = {mSwapchain->getSwapChain()};
 
@@ -220,6 +222,9 @@ void VulkanApp::drawFrame()
         mFramebufferResized = false;
         return;
     }
+
+    if (result != VK_SUCCESS)
+        throw std::runtime_error("vkQueuePresentKHR failed: VkResult=" + std::to_string(result));
 
     // 6. 下一帧使用的同步资源下标
     mCurrentFrame = (mCurrentFrame + 1) % mSwapchain->getImageCount();
