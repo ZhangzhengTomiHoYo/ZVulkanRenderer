@@ -1,5 +1,6 @@
 #include "Fence.h"
 #include <stdexcept>
+#include <string>
 
 namespace VKFW::vulkancore
 {
@@ -23,12 +24,16 @@ Fence::~Fence()
 
 void Fence::waitForFence(uint64_t timeout)
 {
-    vkWaitForFences(mDevice->getDevice(), 1, &mFence, VK_TRUE, timeout);
+    VkResult result = vkWaitForFences(mDevice->getDevice(), 1, &mFence, VK_TRUE, timeout);
+    if (result != VK_SUCCESS)
+        throw std::runtime_error("vkWaitForFences failed: VkResult=" + std::to_string(result));
 }
 
 void Fence::resetFence()
 {
-    vkResetFences(mDevice->getDevice(), 1, &mFence);
+    VkResult result = vkResetFences(mDevice->getDevice(), 1, &mFence);
+    if (result != VK_SUCCESS)
+        throw std::runtime_error("vkResetFences failed: VkResult=" + std::to_string(result));
 }
 
 } // namespace VKFW::vulkancore

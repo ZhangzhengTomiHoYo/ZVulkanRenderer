@@ -125,7 +125,9 @@ void SwapChain::createResources()
 
 void SwapChain::recreateSwapchain() 
 {
-    vkDeviceWaitIdle(mDevice->getDevice());
+    VkResult result = vkDeviceWaitIdle(mDevice->getDevice());
+    if (result != VK_SUCCESS)
+        throw std::runtime_error("vkDeviceWaitIdle before swapchain recreation failed: VkResult=" + std::to_string(result));
 
     int w, h;
     glfwGetFramebufferSize(mWindow->getWindow(), &w, &h);
