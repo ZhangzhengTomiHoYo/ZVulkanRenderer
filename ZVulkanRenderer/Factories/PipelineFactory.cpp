@@ -7,8 +7,9 @@ std::shared_ptr<vulkancore::Pipeline> PipelineFactory::MakeSceneBase(const std::
     auto pipeline = std::make_shared<vulkancore::Pipeline>(device, renderPass);
     fillCommon(pipeline);
 
-    // 场景几何体：剔除背面（翻转视口下，逆时针为正面）
+    // // 剔除背面，按顺时针顶点顺序判定正面
     pipeline->mRasterState.cullMode = VK_CULL_MODE_BACK_BIT;
+    pipeline->mRasterState.frontFace = VK_FRONT_FACE_CLOCKWISE;
 
     // 必须与渲染通道的采样数一致；离屏 MSAA 渲染通道
     // 使用设备支持的最大采样数
@@ -20,7 +21,7 @@ std::shared_ptr<vulkancore::Pipeline> PipelineFactory::MakeSceneBase(const std::
     pipeline->mDepthStencilState.sType            = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
     pipeline->mDepthStencilState.depthTestEnable  = VK_TRUE;
     pipeline->mDepthStencilState.depthWriteEnable = VK_TRUE;
-    pipeline->mDepthStencilState.depthCompareOp   = VK_COMPARE_OP_LESS;
+    pipeline->mDepthStencilState.depthCompareOp   = VK_COMPARE_OP_LESS_OR_EQUAL;
 
     return pipeline; // 尚未构建，由调用者完成配置并调用 build()
 }
