@@ -18,6 +18,7 @@
 #include "DescriptorManager.h"
 #include "RenderObjectNode.h"
 #include "OffscreenRenderTarget.h"
+#include "IBLBaker.h"
 
 namespace VKFW::renderer
 {
@@ -60,9 +61,14 @@ class Scene
     // 模型、纹理、相机和动画状态。
     bool                                 mStaticReady = false;
     std::shared_ptr<Camera>              mMainCamera  = nullptr;
-    std::shared_ptr<vulkancore::Texture> mCubeTexture = nullptr;
-    std::shared_ptr<RenderObjectNode>          mCubeObjectNode    = nullptr;
+    std::shared_ptr<vulkancore::Texture> mObjectTexture = nullptr;
+    std::shared_ptr<RenderObjectNode>          mObjectNode    = nullptr;
     float                                mRotation    = 0.0f;
+
+    std::shared_ptr<IBLBaker>          mIBLBaker   = nullptr;
+    std::shared_ptr<vulkancore::Image> mEnvCubemap = nullptr;
+    std::shared_ptr<vulkancore::Image> mIrradianceCubemap = nullptr;
+    std::shared_ptr<RenderObjectNode>  mSkyboxObjectNode = nullptr;
 
     // 场景共享描述符和全屏绘制描述符。
     std::shared_ptr<DescriptorManager> mGlobalDescriptorManager = nullptr; // set 0
@@ -71,6 +77,9 @@ class Scene
     // 场景管线和全屏管线。
     std::shared_ptr<vulkancore::Pipeline> mScenePipeline = nullptr;
     std::shared_ptr<vulkancore::Pipeline> mQuadPipeline  = nullptr;
+
+    // 天空盒管线
+    std::shared_ptr<vulkancore::Pipeline> mSkyboxPipeline = nullptr;
 
     // 每张交换链图像对应一份命令缓冲区。
     std::vector<std::shared_ptr<vulkancore::CommandBuffer>> mCommandBuffers{};
