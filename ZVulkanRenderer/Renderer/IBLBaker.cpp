@@ -398,6 +398,95 @@ std::shared_ptr<vulkancore::Image> IBLBaker::bakePrefilter(const std::shared_ptr
     return prefilter;
 }
 
+std::shared_ptr<vulkancore::Image> IBLBaker::bakeBRDFLUT(uint32_t size, const std::string &vertSpv, const std::string &fragSpv)
+{
+    // 创建输出的二维 LUT，允许着色器采样和传输写入，随后转换为传输目标布局。
+    vulkancore::ImageDescription desc{};
+    desc.width       = size;
+    desc.height      = size;
+    desc.format      = VK_FORMAT_R32G32B32A32_SFLOAT;
+    desc.usage       = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
+    desc.aspectFlags = VK_IMAGE_ASPECT_COLOR_BIT;
+
+    auto lut = std::make_shared<vulkancore::Image>(mDevice, desc);
+    lut->transitionLayout(VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, mCommandPool);
+
+    // 创建临时二维 RT，最终布局为传输源，方便将结果复制到 LUT。
+    auto rt = std::make_shared<OffscreenRenderTarget>(mDevice, mCommandPool, size, size, 1, VK_FORMAT_R32G32B32A32_SFLOAT, VK_FORMAT_D24_UNORM_S8_UINT, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
+
+    // 创建全屏三角形管线，不需要顶点缓冲区或描述符集。
+    // BRDF 积分只做数学计算，不采样输入纹理。
+    auto pipeline = factories::PipelineFactory::MakeFullScreenBase(mDevice, rt->getRenderPass());
+
+    // 全屏管线工厂默认单采样，通常用于已经完成 MSAA 解析的后处理绘制。
+    // 这里复用的 OffscreenRenderTarget 却采用设备支持的最大 MSAA 采样数。
+    // 管线的光栅化采样数必须与 RenderPass 的颜色附件匹配，因此需要覆盖默认值。
+    // 这次计算 LUT 不需要 MSAA；这里启用它是为了配合现有 RT 的配置，
+    // 同时保持与旧工厂构建全屏管线的流程一致。
+    pipeline->mMultisampleState.rasterizationSamples = mDevice->getMaxUsableSampleCount();
+
+    auto vert = std::make_shared<vulkancore::Shader>(mDevice, vertSpv, VK_SHADER_STAGE_VERTEX_BIT, "main");
+    auto frag = std::make_shared<vulkancore::Shader>(mDevice, fragSpv, VK_SHADER_STAGE_FRAGMENT_BIT, "main");
+    pipeline->setShaderGroup({vert, frag});
+
+    // 管线布局不包含描述符集。全屏管线工厂已经将顶点输入和描述符布局留空，
+    // 此处明确设置后构建管线。
+    pipeline->mPipelineLayoutInfo.setLayoutCount = 0;
+    pipeline->mPipelineLayoutInfo.pSetLayouts    = nullptr;
+    pipeline->build();
+
+    VkViewport viewport{};
+    viewport.x        = 0.0f;
+    viewport.y        = 0.0f;
+    viewport.width    = static_cast<float>(size);
+    viewport.height   = static_cast<float>(size);
+    viewport.minDepth = 0.0f;
+    viewport.maxDepth = 1.0f;
+    VkRect2D scissor{};
+    scissor.offset = {0, 0};
+    scissor.extent = {size, size};
+
+    std::array<VkClearValue, 3> clears{};
+    clears[0].color        = {0, 0, 0, 0};
+    clears[1].color        = {0, 0, 0, 0};
+    clears[2].depthStencil = {1.0f, 0};
+
+    VkRenderPassBeginInfo rpInfo{};
+    rpInfo.sType             = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
+    rpInfo.renderPass        = rt->getRenderPass()->getRenderPass();
+    rpInfo.framebuffer       = rt->getOffScreenFramebuffers()[0];
+    rpInfo.renderArea.offset = {0, 0};
+    rpInfo.renderArea.extent = {size, size};
+    rpInfo.clearValueCount   = static_cast<uint32_t>(clears.size());
+    rpInfo.pClearValues      = clears.data();
+
+
+    // 只绘制一次全屏三角形，计算整张查找表。
+    auto cmd = std::make_shared<vulkancore::CommandBuffer>(mDevice, mCommandPool);
+    cmd->beginCommandBuffer(VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT);
+
+    cmd->beginRenderPass(rpInfo, VK_SUBPASS_CONTENTS_INLINE);
+    cmd->bindGraphicPipeline(pipeline);
+
+    VkCommandBuffer raw = cmd->getCommandBuffer();
+    vkCmdSetViewport(raw, 0, 1, &viewport);
+    vkCmdSetScissor(raw, 0, 1, &scissor);
+    vkCmdDraw(raw, 3, 1, 0, 0); // 绘制全屏三角形，不绑定描述符集。
+
+    cmd->endRenderPass();
+
+    // 将处于传输源布局的 RT 结果复制到 LUT，执行普通的二维图像到二维图像复制。
+    cmd->copyImageToImage(rt->getRenderTargetImage(0)->getImage(), lut->getImage(), size, size, 0);
+
+    cmd->endCommandBuffer();
+    cmd->submitCommandBuffer(mDevice->getGraphicQueue());
+    cmd->waitCommandBuffer(mDevice->getGraphicQueue());
+
+    lut->transitionLayout(VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, mCommandPool);
+
+    return lut;
+}
+
 void IBLBaker::initCaptureCameras()
 {
     mCaptureCameras[0].lookAt({0, 0, 0}, {1, 0, 0}, {0, -1, 0});

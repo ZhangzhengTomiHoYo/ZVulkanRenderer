@@ -134,6 +134,26 @@ void CommandBuffer::pushConstants(VkPipelineLayout layout, VkShaderStageFlags st
     vkCmdPushConstants(mCommandBuffer, layout, stages, offset, size, data);
 }
 
+void CommandBuffer::copyImageToImage(VkImage src, VkImage dst, uint32_t width, uint32_t height, uint32_t dstMipLevel) 
+{
+    VkImageCopy region{};
+    region.srcSubresource.aspectMask     = VK_IMAGE_ASPECT_COLOR_BIT;
+    region.srcSubresource.mipLevel       = 0;
+    region.srcSubresource.baseArrayLayer = 0;
+    region.srcSubresource.layerCount     = 1;
+    region.srcOffset                     = {0, 0, 0};
+
+    region.dstSubresource.aspectMask     = VK_IMAGE_ASPECT_COLOR_BIT;
+    region.dstSubresource.mipLevel       = dstMipLevel;
+    region.dstSubresource.baseArrayLayer = 0;
+    region.dstSubresource.layerCount     = 1;
+    region.dstOffset                     = {0, 0, 0};
+
+    region.extent = {width, height, 1};
+
+    vkCmdCopyImage(mCommandBuffer, src, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, dst, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &region);
+}
+
 void CommandBuffer::submitCommandBuffer(VkQueue queue)
 {
     VkSubmitInfo submitInfo{};

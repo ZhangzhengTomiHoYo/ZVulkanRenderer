@@ -24,8 +24,8 @@ void Scene::initStaticResources()
     auto model = std::make_shared<Model>();
     model->loadModel("../../../Assets/Bunny/bunny.obj", mDevice);
 
-    mObjectTexture = vulkancore::Texture::create(mDevice, mCommandPool, "../../../Assets/DamagedHelmet/Default_albedo.jpg");
-
+    //mObjectTexture = vulkancore::Texture::create(mDevice, mCommandPool, "../../../Assets/DamagedHelmet/Default_albedo.jpg");
+    
     mObjectNode = std::make_shared<RenderObjectNode>();
     mObjectNode->mModels.push_back(model);
     mObjectNode->setShaderFiles("spvs/hello_vert.spv", "spvs/hello_frag.spv");
@@ -40,6 +40,9 @@ void Scene::initStaticResources()
     mEnvCubemap = mIBLBaker->equirectToCubemap("../../../Assets/1.hdr", 512);
     mIrradianceCubemap = mIBLBaker->bakeIrradiance(mEnvCubemap, 32);
     mPrefilterCubemap  = mIBLBaker->bakePrefilter(mEnvCubemap, 128);
+    mBRDFLUT           = mIBLBaker->bakeBRDFLUT(512);
+
+    mObjectTexture = vulkancore::Texture::createFromImage(mDevice, mBRDFLUT);
 
     auto skyboxModel = std::make_shared<Model>();
     skyboxModel->loadModel("../../../Assets/skybox_cube.obj", mDevice);

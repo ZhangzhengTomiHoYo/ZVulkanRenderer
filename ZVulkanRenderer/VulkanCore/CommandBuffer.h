@@ -41,6 +41,9 @@ class CommandBuffer
     void copyImageToCubeFace(VkImage source, VkImage destination, uint32_t width, uint32_t height, uint32_t faceIndex, uint32_t mipLevel);
 
     void pushConstants(VkPipelineLayout layout, VkShaderStageFlags stages, uint32_t offset, uint32_t size, const void *data);
+
+    // plain 2D-to-2D copy (e.g. capture RT -> BRDF LUT)
+    void copyImageToImage(VkImage src, VkImage dst, uint32_t width, uint32_t height, uint32_t dstMipLevel = 0);
   private:
     VkCommandBuffer              mCommandBuffer = VK_NULL_HANDLE;
     std::shared_ptr<CommandPool> mCommandPool   = nullptr;
