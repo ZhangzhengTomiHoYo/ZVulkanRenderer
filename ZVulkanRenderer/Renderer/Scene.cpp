@@ -39,6 +39,7 @@ void Scene::initStaticResources()
 
     mEnvCubemap = mIBLBaker->equirectToCubemap("../../../Assets/1.hdr", 512);
     mIrradianceCubemap = mIBLBaker->bakeIrradiance(mEnvCubemap, 32);
+    mPrefilterCubemap  = mIBLBaker->bakePrefilter(mEnvCubemap, 128);
 
     auto skyboxModel = std::make_shared<Model>();
     skyboxModel->loadModel("../../../Assets/skybox_cube.obj", mDevice);
@@ -77,7 +78,7 @@ void Scene::initResourcesAndObjectNodes()
     skyboxDescriptorManager->init(mDevice, imageCount);
     skyboxDescriptorManager->attachObjectUBO();
 
-    auto skyboxTexture = vulkancore::Texture::createFromImage(mDevice, mIrradianceCubemap, std::make_shared<vulkancore::Sampler>(mDevice));
+    auto skyboxTexture = vulkancore::Texture::createFromImage(mDevice, mPrefilterCubemap, std::make_shared<vulkancore::Sampler>(mDevice));
 
     skyboxDescriptorManager->attachTexture(skyboxTexture);
     skyboxDescriptorManager->build();

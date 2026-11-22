@@ -129,6 +129,11 @@ void CommandBuffer::copyImageToCubeFace(VkImage source, VkImage destination, uin
     vkCmdCopyImage(mCommandBuffer, source, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, destination, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &region);
 }
 
+void CommandBuffer::pushConstants(VkPipelineLayout layout, VkShaderStageFlags stages, uint32_t offset, uint32_t size, const void *data) 
+{
+    vkCmdPushConstants(mCommandBuffer, layout, stages, offset, size, data);
+}
+
 void CommandBuffer::submitCommandBuffer(VkQueue queue)
 {
     VkSubmitInfo submitInfo{};

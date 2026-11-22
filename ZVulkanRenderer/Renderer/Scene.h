@@ -68,6 +68,7 @@ class Scene
     std::shared_ptr<IBLBaker>          mIBLBaker   = nullptr;
     std::shared_ptr<vulkancore::Image> mEnvCubemap = nullptr;
     std::shared_ptr<vulkancore::Image> mIrradianceCubemap = nullptr;
+    std::shared_ptr<vulkancore::Image> mPrefilterCubemap  = nullptr; 
     std::shared_ptr<RenderObjectNode>  mSkyboxObjectNode = nullptr;
 
     // 场景共享描述符和全屏绘制描述符。

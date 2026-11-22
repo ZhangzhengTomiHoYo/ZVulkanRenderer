@@ -29,7 +29,7 @@ class IBLBaker
     // 将 HDR 全景图转换为六面 CubeMap
     std::shared_ptr<vulkancore::Image> equirectToCubemap(const std::string &hdrPath, uint32_t faceSize, const std::string &vertexShaderFile = "spvs/equirect_to_cube_vert.spv", const std::string &fragmentShaderFile = "spvs/equirect_to_cube_frag.spv");
     std::shared_ptr<vulkancore::Image> bakeIrradiance(const std::shared_ptr<vulkancore::Image> &envCubemap, uint32_t faceSize, const std::string &vertSpv = "spvs/irradiance_convolution_vert.spv", const std::string &fragSpv = "spvs/irradiance_convolution_frag.spv");
-
+    std::shared_ptr<vulkancore::Image> bakePrefilter(const std::shared_ptr<vulkancore::Image> envCubemap, uint32_t baseSize, uint32_t mipLevels = 5, const std::string &vertSpv = "spvs/prefilter_specular_vert.spv", const std::string &fragSpv = "spvs/prefilter_specular_frag.spv");
   private:
     void initCaptureCameras();
 
