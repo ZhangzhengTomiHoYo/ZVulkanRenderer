@@ -169,9 +169,16 @@ void Device::createLogicalDevice()
     VkPhysicalDeviceFeatures features{};
     features.samplerAnisotropy = VK_TRUE;
 
+    VkPhysicalDeviceNonSeamlessCubeMapFeaturesEXT e{};
+    e.sType              = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_NON_SEAMLESS_CUBE_MAP_FEATURES_EXT;
+    e.nonSeamlessCubeMap = VK_TRUE;
+
     VkPhysicalDeviceVulkan11Features features11{};
     features11.sType                = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_1_FEATURES;
     features11.shaderDrawParameters = VK_TRUE;
+    features11.pNext                = &e;
+
+
 
     VkDeviceCreateInfo deviceCreateInfo{};
     deviceCreateInfo.sType                   = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;

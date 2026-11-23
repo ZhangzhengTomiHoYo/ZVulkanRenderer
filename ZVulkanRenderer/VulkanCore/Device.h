@@ -43,7 +43,7 @@ class Device
     VkQueue                 mGraphicQueue = VK_NULL_HANDLE;
     VkQueue                 mPresentQueue = VK_NULL_HANDLE;
 
-    const std::vector<const char *> deviceExtensions = {VK_KHR_SWAPCHAIN_EXTENSION_NAME};
+    const std::vector<const char *> deviceExtensions = {VK_KHR_SWAPCHAIN_EXTENSION_NAME, VK_EXT_NON_SEAMLESS_CUBE_MAP_EXTENSION_NAME};
     const std::vector<const char *> validationLayers = {"VK_LAYER_KHRONOS_validation"};
 };
 
