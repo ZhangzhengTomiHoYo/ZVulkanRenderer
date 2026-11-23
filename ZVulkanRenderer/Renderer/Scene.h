@@ -19,6 +19,7 @@
 #include "RenderObjectNode.h"
 #include "OffscreenRenderTarget.h"
 #include "IBLBaker.h"
+#include "Light.h"
 
 namespace VKFW::renderer
 {
@@ -64,6 +65,8 @@ class Scene
     std::shared_ptr<vulkancore::Texture> mObjectTexture = nullptr;
     std::shared_ptr<RenderObjectNode>          mObjectNode    = nullptr;
     float                                mRotation    = 0.0f;
+    
+    std::shared_ptr<Light> mLight = nullptr;
 
     std::shared_ptr<IBLBaker>          mIBLBaker   = nullptr;
     std::shared_ptr<vulkancore::Image> mEnvCubemap = nullptr;
@@ -71,6 +74,15 @@ class Scene
     std::shared_ptr<vulkancore::Image> mPrefilterCubemap  = nullptr;
     std::shared_ptr<vulkancore::Image> mBRDFLUT           = nullptr; 
     std::shared_ptr<RenderObjectNode>  mSkyboxObjectNode = nullptr;
+
+    // ---- PBR 资源：DamagedHelmet glTF 模型及五张材质贴图 ----
+    std::shared_ptr<RenderObjectNode> mPBRNode{nullptr};
+    std::shared_ptr<vulkancore::Texture> mPBRAlbedo{nullptr};
+    std::shared_ptr<vulkancore::Texture> mPBRNormal{nullptr};
+    std::shared_ptr<vulkancore::Texture> mPBRMetalRough{nullptr};
+    std::shared_ptr<vulkancore::Texture> mPBRAO{nullptr};
+    std::shared_ptr<vulkancore::Texture> mPBREmissive{nullptr};
+
 
     // 场景共享描述符和全屏绘制描述符。
     std::shared_ptr<DescriptorManager> mGlobalDescriptorManager = nullptr; // set 0
@@ -80,11 +92,15 @@ class Scene
     std::shared_ptr<vulkancore::Pipeline> mScenePipeline = nullptr;
     std::shared_ptr<vulkancore::Pipeline> mQuadPipeline  = nullptr;
 
+    std::shared_ptr<vulkancore::Pipeline> mPBRPipeline = nullptr;
+
     // 天空盒管线
     std::shared_ptr<vulkancore::Pipeline> mSkyboxPipeline = nullptr;
 
     // 每张交换链图像对应一份命令缓冲区。
     std::vector<std::shared_ptr<vulkancore::CommandBuffer>> mCommandBuffers{};
+
+
 };
 
 } // namespace VKFW::renderer
