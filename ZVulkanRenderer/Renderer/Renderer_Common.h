@@ -16,3 +16,13 @@ struct ObjectUBO
     glm::mat4 model        = glm::mat4(1.0f);
     glm::mat4 normalMatrix = glm::mat4(1.0f);
 };
+
+// 方向光 UBO，位于共享 set 0 的 binding 1。
+// direction 为世界空间中光朝场景传播的方向；
+// 着色时使用其反方向 L，即从表面指向光源的方向。
+// color.rgb 保存光的颜色，color.a 保存强度倍率。
+struct LightUBO
+{
+    glm::vec4 direction{-1.0f, -1.0f, -1.0f, 0.0f};
+    glm::vec4 color{1.0f, 1.0f, 1.0f, 2.0f};
+};

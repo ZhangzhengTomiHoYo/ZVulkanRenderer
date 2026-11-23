@@ -21,6 +21,7 @@ class DescriptorManager
     void init(const std::shared_ptr<vulkancore::Device> &device, int frameCount);
 
     void attachCameraUBO(); // binding 0：观察矩阵和投影矩阵
+    void attachLightUBO();
     void attachObjectUBO(); // binding 1：模型矩阵
     void attachTexture(const std::shared_ptr<vulkancore::Texture> &texture);
     void attachPerFrameTextures(const std::vector<std::shared_ptr<vulkancore::Texture>> &perFrameTextures);
@@ -29,6 +30,7 @@ class DescriptorManager
     void build();
 
     void updateCameraUBO(const CameraUBO &data, int frameIndex);
+    void updateLightUBO(const LightUBO &data, int frameIndex);
     void updateObjectUBO(const ObjectUBO &data, int frameIndex);
 
     std::shared_ptr<vulkancore::DescriptorSetLayout> getLayout() const { return mLayout; }
@@ -44,6 +46,8 @@ class DescriptorManager
     std::vector<std::shared_ptr<vulkancore::DescriptorParameter>> mParams;
     int mCameraParamIndex = -1;  // 用于访问 mParams 找哪种资源->相机UBO
     int mObjectParamIndex = -1;  // 找->物体UBO
+
+    int mLightParamIndex = -1;
 
     int mFrameCount = 1;         // UBO的第几份Buffer
 };

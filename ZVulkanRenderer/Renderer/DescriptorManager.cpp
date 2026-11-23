@@ -17,13 +17,29 @@ void DescriptorManager::attachCameraUBO()
     parameter->mBinding        = static_cast<uint32_t>(mParams.size());
     parameter->mDescriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
     parameter->mCount          = 1;
-    parameter->mStageFlags     = VK_SHADER_STAGE_VERTEX_BIT;
+    parameter->mStageFlags     = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT;
     parameter->mSize           = sizeof(CameraUBO);
 
     for (int i = 0; i < mFrameCount; i++)
         parameter->mBuffers.push_back(vulkancore::DataBuffer::createUniformBuffer(mDevice, parameter->mSize));
 
     mParams.push_back(parameter);
+}
+
+void DescriptorManager::attachLightUBO() 
+{
+    mLightParamIndex   = (int)mParams.size();
+    auto p             = std::make_shared<vulkancore::DescriptorParameter>();
+    p->mBinding        = (uint32_t)mParams.size();
+    p->mDescriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+    p->mCount          = 1;
+    p->mStageFlags     = VK_SHADER_STAGE_FRAGMENT_BIT;
+    p->mSize           = sizeof(LightUBO);
+
+    for (int i = 0; i < mFrameCount; i++)
+        p->mBuffers.push_back(vulkancore::DataBuffer::createUniformBuffer(mDevice, p->mSize));
+
+    mParams.push_back(p);
 }
 
 void DescriptorManager::attachObjectUBO()
@@ -92,6 +108,13 @@ void DescriptorManager::updateCameraUBO(const CameraUBO &data, int frameIndex)
     if (mCameraParamIndex < 0)
         throw std::runtime_error("DescriptorManager: no camera UBO attached");
     mParams[mCameraParamIndex]->mBuffers[frameIndex]->updateBufferByMap(&data, sizeof(CameraUBO));
+}
+
+void DescriptorManager::updateLightUBO(const LightUBO &data, int frameIndex) 
+{
+    if (mLightParamIndex < 0)
+        throw std::runtime_error("DescriptorManager: no light UBO attached");
+    mParams[mLightParamIndex]->mBuffers[frameIndex]->updateBufferByMap(&data, sizeof(LightUBO));
 }
 
 void DescriptorManager::updateObjectUBO(const ObjectUBO &data, int frameIndex)
